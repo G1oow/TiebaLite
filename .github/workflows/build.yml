@@ -54,6 +54,25 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # 内存调优必须排在缓存步骤之前：setup-gradle 的缓存 key 由 gradle.properties 等
+      # 构建文件的哈希决定，先改文件再算 key，否则每次运行 key 都对不上、缓存永不命中。
+      # GitHub runner 7G/2C：Gradle daemon 压到 2048m 给编译期让路，Kotlin daemon 4096m
+      # （编译期峰值所在），workers.max=1 砍掉并行 worker JVM 峰值。追加同名键后者胜出。
+      - name: Tune Gradle for release build
+        run: |
+          printf '\norg.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8 --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED\nkotlin.daemon.jvmargs=-Xmx4096m\norg.gradle.workers.max=1\n' >> gradle.properties
+          echo "=== gradle.properties 尾部（确认覆盖生效）==="
+          tail -6 gradle.properties
+
+      # 依赖与 build cache：此前完全没有缓存，每次运行都要从官方 Maven 全量下载依赖再全量
+      # 编译（实测「Build release APK」一步独占 12 分钟）。setup-gradle 会缓存 Gradle User
+      # Home（依赖 / wrapper）与本地 build cache（gradle.properties 已开 org.gradle.caching），
+      # 后续运行的大量任务可直接 FROM-CACHE，只需重跑真正变更的部分。
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
       # runner 镜像自带 Android SDK（/usr/local/lib/android/sdk，含 cmdline-tools），
       # 接受 licenses 后由 AGP 按 compileSdk 自行补装 platform / build-tools；
       # 显式补装 platforms;android-36 + build-tools;36.0.0 兜底。
@@ -86,15 +105,6 @@ jobs:
           print('repositories switched to official sources')
           EOF
           grep -A 12 "^repositories:" gradle/sweet-dependency/sweet-dependency-config.yaml
-
-      # 内存调优：GitHub runner 7G/2C。Gradle daemon 压到 2048m 给编译期让路，
-      # Kotlin daemon 4096m（编译期峰值所在），workers.max=1 砍掉并行 worker JVM 峰值。
-      # 追加同名键后者胜出。
-      - name: Tune Gradle for release build
-        run: |
-          printf '\norg.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8 --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED\nkotlin.daemon.jvmargs=-Xmx4096m\norg.gradle.workers.max=1\n' >> gradle.properties
-          echo "=== gradle.properties 尾部（确认覆盖生效）==="
-          tail -6 gradle.properties
 
       # 发布签名由 build.gradle.kts 固定指向 app/tblite_debug.jks；
       # assembleRelease 依赖 checkReleaseSigning，签名缺失或证书指纹不符会直接失败。
