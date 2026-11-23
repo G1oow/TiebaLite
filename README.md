@@ -88,6 +88,13 @@ TiebaLite is an **unofficial** Baidu Tieba Android client, written in Kotlin wit
 
 > **⚠️ Notice:** This software and its source code are for learning and communication only. Commercial use is strictly prohibited. Not affiliated with Baidu, Inc.
 
+## 🆕 v4.0.65 — No More Growing Pages · Full-Screen Black Bar Fix
+
+> ### 📐 The page no longer "grows" while scrolling · 🖥️ Notch and tall screens filled
+> **Scroll feel**: the top/bottom bars now only slide out — their layout height never changes, so the list's content padding stays constant, nothing is re-measured mid-scroll and the page never "grows"; what you see after the bars slide away is the content that was already filling the whole area underneath.
+> **Full screen**: the main theme now declares `windowLayoutInDisplayCutoutMode=shortEdges` (previously only the photo viewer had it) so the window can extend into the notch/cutout; the page root paints the theme background so transparent windows no longer reveal black behind the status/navigation bars; `android.max_aspect` raised from 2.4 to 4.0 so tall screens aren't letterboxed.
+> **Safe area**: the top bar insets against statusBars ∪ displayCutout, the bottom bar includes displayCutout, and landscape gets horizontal safe-area padding (cutout / side navigation bar).
+
 ## 🆕 v4.0.64 — Large-Screen Adaptation · Auto-Hiding Bars · Pinned Signing & Manual Release
 
 > ### 🖥️ No more stretched-wide layouts · 🎈 Bars follow your scroll · 🔐 Reproducible releases
@@ -558,6 +565,7 @@ This project was originally developed and maintained by **[HuanCheng65](https://
 | v4.0.0-ai.51 | 2026-09-22 | 🧪 **First Fully Green CI Preview** — Android SDK installed on runners · jitpack TLS retries · ButterKnife leftovers removed · publishing moved to the native Codeberg API |
 | v4.0.52 | 2026-09-23 | **🔢 Semantic Versioning Series** — version line switched to v4.0.N · stable channel filters the latest official release from the releases list |
 | v4.0.53 | 2026-10-04 | **🛠️ Mac Remote Build Line** — builds moved to the Mac build machine (a stable output line during CI turbulence) · signatures byte-identical to local builds |
+| v4.0.65 | 2026-11-23 | **📐 No More Growing Pages · 🖥️ Full-Screen Black Bar Fix** — bars translate only, layout height never changes · shortEdges added to the main theme · theme background painted at the root · max_aspect 2.4 → 4.0 |
 | v4.0.64 | 2026-11-23 | **🖥️ Large-Screen Adaptation · 🎈 Auto-Hiding Bars · 🔐 Pinned Signing** — absolute caps with centering · 220 ms bar collapse/expand that never consumes scroll · pinned keystore verified twice · manual Actions release · update channel points at this fork |
 | v4.0.63 | 2026-10-20 | **🎛️ Followed-Forums-Only Filter** — a toggle on the recommend feed that keeps only posts from forums you follow (issue #2) · concern tab restored to own-activity semantics |
 | v4.0.62 | 2026-10-20 | **📰 Concern Feed Fix** — the 关注 tab now shows followed-forum posts instead of your own activity (fixes "mostly my own posts"; issue #2) |
