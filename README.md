@@ -78,7 +78,7 @@ Of course, it is entirely voluntary — please don't feel any pressure. If you f
 | 📐 **Content Density** | Compact / Standard / Comfortable spacing modes |
 | 💾 **Offline Cache** | Automatically loads cached thread lists when the network drops |
 | 🏗️ **Modern Tech Stack** | Kotlin 2.0.21 + Compose BOM 2024.12 + Hilt + Protobuf |
-| 📦 **One-Tap Install** | Download the APK directly from the [Releases page](https://github.com/qaqmin/TiebaLite/releases/latest) |
+| 📦 **One-Tap Install** | Download the APK directly from the [Releases page](https://github.com/G1oow/TiebaLite/releases/latest) |
 
 ---
 
@@ -87,6 +87,14 @@ Of course, it is entirely voluntary — please don't feel any pressure. If you f
 TiebaLite is an **unofficial** Baidu Tieba Android client, written in Kotlin with a Jetpack Compose UI. It supports an exceptionally long device range from **Android 5.0 to Android 16** with full 16KB page alignment. At its core it is a reverse-engineering implementation of the Baidu Tieba API, aiming to provide the lightest, cleanest Tieba client without sacrificing the core browsing experience.
 
 > **⚠️ Notice:** This software and its source code are for learning and communication only. Commercial use is strictly prohibited. Not affiliated with Baidu, Inc.
+
+## 🆕 v4.0.64 — Large-Screen Adaptation · Auto-Hiding Bars · Pinned Signing & Manual Release
+
+> ### 🖥️ No more stretched-wide layouts · 🎈 Bars follow your scroll · 🔐 Reproducible releases
+> **Adaptation**: shared breakpoint constants (840dp content / 560dp dialog caps) — lists, containers and dialogs center and narrow on large screens instead of capping width by a percentage of the window.
+> **Auto-hide bars**: the top and bottom bars collapse on scroll-down and return on scroll-up (220 ms tween); scroll callbacks only observe direction and never consume offsets, so scrolling and fling feel unchanged. Can be turned off in Custom Settings.
+> **Signing & release**: release builds always use the repository keystore (certificate SHA-256 pinned, verified at build time and again on the APK); no more silent fallback to a random debug key. Added a manually triggered Actions release workflow.
+> **Update channel**: the in-app update check and the About page project link now point at this fork; the Codeberg fallback channel and the channel picker are gone.
 
 ## 🆕 v4.0.63 — Followed-Forums-Only Filter (Issue #2 Delivered)
 
@@ -550,6 +558,7 @@ This project was originally developed and maintained by **[HuanCheng65](https://
 | v4.0.0-ai.51 | 2026-09-22 | 🧪 **First Fully Green CI Preview** — Android SDK installed on runners · jitpack TLS retries · ButterKnife leftovers removed · publishing moved to the native Codeberg API |
 | v4.0.52 | 2026-09-23 | **🔢 Semantic Versioning Series** — version line switched to v4.0.N · stable channel filters the latest official release from the releases list |
 | v4.0.53 | 2026-10-04 | **🛠️ Mac Remote Build Line** — builds moved to the Mac build machine (a stable output line during CI turbulence) · signatures byte-identical to local builds |
+| v4.0.64 | 2026-11-23 | **🖥️ Large-Screen Adaptation · 🎈 Auto-Hiding Bars · 🔐 Pinned Signing** — absolute caps with centering · 220 ms bar collapse/expand that never consumes scroll · pinned keystore verified twice · manual Actions release · update channel points at this fork |
 | v4.0.63 | 2026-10-20 | **🎛️ Followed-Forums-Only Filter** — a toggle on the recommend feed that keeps only posts from forums you follow (issue #2) · concern tab restored to own-activity semantics |
 | v4.0.62 | 2026-10-20 | **📰 Concern Feed Fix** — the 关注 tab now shows followed-forum posts instead of your own activity (fixes "mostly my own posts"; issue #2) |
 | v4.0.60 | 2026-10-16 | **🖼️ Album Doesn't Exit Fix** — picker no longer started twice per tap (fixes "image inserted but album stays open"; issue #1 root cause) |
@@ -559,7 +568,7 @@ This project was originally developed and maintained by **[HuanCheng65](https://
 | v4.0.56 | 2026-10-07 | **🔀 Update Channel Migrated** — GitHub update channel now points at qaqmin/TiebaLite (previous account banned) · README links updated to match |
 | v4.0.55 | 2026-10-07 | **🔄 Update Check Hardening** — ETag conditional requests (304s bypass GitHub's anonymous limit) + automatic 403 fallback · clean task fix (stale APKs no longer leak into artifacts) |
 | v4.0.54 | 2026-10-04 | **🏠 Migrated to New Account qaqmin09577** — default update channel switched to GitHub · Codeberg becomes fallback · dual-track publishing · overwrite updates unaffected |
-| [▶ Latest Release](https://github.com/qaqmin/TiebaLite/releases/latest) | | **← Download APK here** |
+| [▶ Latest Release](https://github.com/G1oow/TiebaLite/releases/latest) | | **← Download APK here** |
 
 ---
 

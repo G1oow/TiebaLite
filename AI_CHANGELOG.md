@@ -1,5 +1,19 @@
 # AI_CHANGELOG
 
+## v4.0.64
+
+### 🇨🇳 中文
+
+大屏自适应、顶栏 / 底栏跟随滑动隐藏、发布签名固定与手动发版流水线（本次同时把更新检测与项目地址指向本仓库 fork）。
+
+- 新增：大屏自适应——统一断点常量（正文 840dp / 弹窗 560dp 上限），列表、`Container` 与弹窗在大屏居中收窄，不再用窗口宽度百分比当行宽上限
+- 新增：顶栏 / 底栏跟随滑动自动隐藏（220ms 缓动）；所有滚动回调只观察方向、返回 `Offset.Zero`，不消费也不放大用户滑动与惯性；「自定义设置 → 顶栏 / 底栏跟随滑动隐藏」可关闭
+- 变更：固定发布签名——release 一律使用仓库内 `app/tblite_debug.jks`（证书 SHA-256 锁定），构建期 `:app:checkReleaseSigning` 校验证书、CI 再用 `apksigner` 复核 APK，签名不符直接失败；不再回落随机 debug key
+- 新增：GitHub Actions 手动发版（`workflow_dispatch`：tag / 是否发布 / 是否预发布），推 `v*` tag 同样触发；同一 ref 的并发运行自动取消旧的
+- 变更：应用内更新检测与关于页「项目地址」指向本仓库 fork；移除 Codeberg 备用渠道与关于页更新渠道选择器，更新检查只剩 fork 的 GitHub Releases 一个来源
+- 变更：`ProjectSignature` 溯源常量同步改为本仓库 fork
+- 新增：`AGENTS.md` 开发与发版规范（构建命令、Compose / 响应式 / 栏隐藏约束、发版三处同步、签名契约）
+
 ## v4.0.63
 
 ### 🇨🇳 中文
