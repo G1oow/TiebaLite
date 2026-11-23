@@ -12,6 +12,8 @@
         <item name="android:windowLightNavigationBar">true</item>
         <item name="android:navigationBarColor">?colorNavBar</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <!-- 全面屏：允许窗口铺进刘海/挖孔区（内容由 safeDrawing inset 避让） -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 
     <style name="Base.AppTheme.Dark" parent="Theme.MaterialComponents.NoActionBar">
@@ -25,5 +27,7 @@
         <item name="android:windowLightNavigationBar">false</item>
         <item name="android:navigationBarColor">?colorNavBar</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <!-- 全面屏：允许窗口铺进刘海/挖孔区（内容由 safeDrawing inset 避让） -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 </resources>

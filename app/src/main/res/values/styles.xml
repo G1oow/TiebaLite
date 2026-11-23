@@ -189,6 +189,8 @@
         <item name="android:windowBackground">@color/transparent</item>
         <item name="android:navigationBarColor">?colorNavBar</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <!-- 全面屏：允许窗口铺进刘海/挖孔区（内容由 safeDrawing inset 避让，不会压字） -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 
     <style name="Base.AppTheme.Dark" parent="Theme.MaterialComponents.NoActionBar">
@@ -200,6 +202,8 @@
         <item name="android:windowBackground">@color/transparent</item>
         <item name="android:navigationBarColor">?colorNavBar</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <!-- 全面屏：允许窗口铺进刘海/挖孔区（内容由 safeDrawing inset 避让，不会压字） -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 
     <style name="AppTheme" parent="Base.AppTheme">

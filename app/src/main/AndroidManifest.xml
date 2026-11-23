@@ -95,7 +95,7 @@
 
         <meta-data
             android:name="android.max_aspect"
-            android:value="2.4" />
+            android:value="4.0" />
         <meta-data
             android:name="android.notch_support"
             android:value="true" />
