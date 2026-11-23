@@ -18,6 +18,7 @@ import androidx.compose.material.icons.outlined.FontDownload
 import androidx.compose.material.icons.outlined.FormatColorFill
 import androidx.compose.material.icons.outlined.Upcoming
 import androidx.compose.material.icons.outlined.ViewAgenda
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -322,6 +323,23 @@ fun CustomSettingsPage(
                         )
                     }
                 }
+            }
+            prefsItem {
+                SwitchPref(
+                    key = "hide_bars_on_scroll",
+                    title = stringResource(id = R.string.title_hide_bars_on_scroll),
+                    defaultChecked = true,
+                    leadingIcon = {
+                        LeadingIcon {
+                            AvatarIcon(
+                                icon = Icons.Outlined.Visibility,
+                                size = Sizes.Small,
+                                contentDescription = null,
+                            )
+                        }
+                    },
+                    summary = stringResource(id = R.string.summary_hide_bars_on_scroll),
+                )
             }
             prefsItem {
                 SwitchPref(

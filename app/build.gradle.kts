@@ -1,5 +1,7 @@
 import com.android.build.gradle.internal.api.BaseVariantOutputImpl
 
+import java.security.KeyStore
+import java.security.MessageDigest
 plugins {
     autowire(libs.plugins.com.android.application)
     autowire(libs.plugins.kotlin.android)
@@ -29,6 +31,38 @@ if (isPerVersion) {
 if (!isSelfBuild && !sha.isNullOrEmpty()) {
     applicationVersionName += "+${sha.substring(0, 7)}"
 }
+
+// ==== 正式发布版签名（固定） ====
+// 历史发布包全部由仓库内 app/tblite_debug.jks（PKCS12，alias tiebalite）签名。
+// 换 key 会让老用户无法覆盖升级，因此把「发布签名」固定成这一份 keystore：
+//   - storeFile / keyAlias 写死，任何机器、任何 CI 都指向同一把 key；
+//   - 口令优先取 keystore.properties，其次取环境变量
+//     TBLITE_KEYSTORE_PASSWORD / TBLITE_KEY_PASSWORD；
+//   - **绝不回落到本机 debug.keystore**——debug key 每台机器随机生成，
+//     正是历史上「同版本号不同签名」的根源。release 构建在签名缺失 / 指纹不符时直接失败
+//     （见 checkReleaseSigning 任务）。
+val pinnedKeystore = rootDir.resolve("app/tblite_debug.jks")
+val pinnedKeyAlias = "tiebalite"
+val pinnedStorePassword: String? = run {
+    val propertiesFile = rootDir.resolve("keystore.properties")
+    if (propertiesFile.exists() && property.keystore.file.isNotBlank()) {
+        property.keystore.password
+    } else {
+        System.getenv("TBLITE_KEYSTORE_PASSWORD")
+    }
+}
+val pinnedKeyPassword: String? = run {
+    val propertiesFile = rootDir.resolve("keystore.properties")
+    if (propertiesFile.exists() && property.keystore.file.isNotBlank()) {
+        property.keystore.key.password
+    } else {
+        System.getenv("TBLITE_KEY_PASSWORD")
+    }
+}
+
+/** 发布签名证书的 SHA-256 指纹（app/tblite_debug.jks）。改它就等于换签名，必须同步更新。 */
+val pinnedReleaseCertSha256 =
+    "F7E02F10C7C9E83B943F8DEEE786B270330416C710CF5CFBCE73027AD19DA759"
 
 wire {
     sourcePath {
@@ -65,14 +99,16 @@ android {
         enableStrongSkippingMode = true
         includeSourceInformation = false
     }
+    // ==== 正式发布版签名（固定） ====
+    // 声明见文件开头「正式发布版签名」区块；此处只把解析结果接进 AGP。
+
     signingConfigs {
-        // keystore.properties 缺失时 sweetProperty provider 求值报错, 先判文件存在(无签名配置也可构建 debug)
-        if (rootDir.resolve("keystore.properties").exists() && property.keystore.file.isNotBlank()) {
+        if (pinnedKeystore.exists()) {
             create("config") {
-                storeFile = file(File(rootDir, property.keystore.file))
-                storePassword = property.keystore.password
-                keyAlias = property.keystore.key.alias
-                keyPassword = property.keystore.key.password
+                storeFile = pinnedKeystore
+                storePassword = pinnedStorePassword
+                keyAlias = pinnedKeyAlias
+                keyPassword = pinnedKeyPassword
                 enableV1Signing = true
                 enableV2Signing = true
                 enableV3Signing = true
@@ -95,12 +131,14 @@ android {
         buildConfigField("String", "SIGN_PROFILE", "\"https://github.com/qaqmin\"")
     }
 
+    // release 必须用固定签名：缺 keystore/口令时由 checkReleaseSigning 任务在构建期直接失败，
+    // 而不是像以前那样悄悄回落到 debug key（那会让每个构建机产出不同签名的同名包）。
+    // debug 保持 Android 默认 debug 签名，便于本地与其他应用共存。
     buildTypes {
         all {
-            signingConfig =
-                if (signingConfigs.any { it.name == "config" })
-                    signingConfigs.getByName("config")
-                else signingConfigs.getByName("debug")
+            if (name == "release") {
+                signingConfig = signingConfigs.findByName("config")
+            }
         }
         release {
             isMinifyEnabled = true
@@ -162,6 +200,62 @@ android {
             }
         }
     }
+}
+
+// ==== 正式发布版签名校验 ====
+// 把「keystore SHA-256 指纹」当成发布契约来守：
+//   - assembleRelease / bundleRelease 前置依赖 checkReleaseSigning；
+//   - keystore 缺失 / 口令缺失 / 证书指纹不符 → 构建直接失败；
+//   - 指纹不符时报错打印实际值与期望值，便于确认是换 key 还是环境串了。
+
+tasks.register("checkReleaseSigning") {
+    group = "verification"
+    description = "校验正式发布版签名 keystore 存在且证书指纹符合发布契约"
+
+    val keystoreFile = pinnedKeystore
+    val storePasswordProvider = pinnedStorePassword
+    val keyAliasProvider = pinnedKeyAlias
+    val expectedSha256 = pinnedReleaseCertSha256
+
+    doLast {
+        if (!keystoreFile.exists()) {
+            throw GradleException(
+                "正式发布版签名缺失：${keystoreFile.path} 不存在。" +
+                    "该 keystore 是历史发布包的签名，必须随仓库分发；" +
+                    "请恢复文件，或改用 keystore.properties 指定替代 keystore（并同步更新指纹契约）。"
+            )
+        }
+        if (storePasswordProvider.isNullOrEmpty()) {
+            throw GradleException(
+                "正式发布版签名口令缺失：请提供 keystore.properties" +
+                    "（keystore.password / keystore.key.password），" +
+                    "或设置环境变量 TBLITE_KEYSTORE_PASSWORD / TBLITE_KEY_PASSWORD。"
+            )
+        }
+        val store = KeyStore.getInstance(keystoreFile, storePasswordProvider.toCharArray())
+        keystoreFile.inputStream().use { input ->
+            store.load(input, storePasswordProvider.toCharArray())
+        }
+        val certificate = store.getCertificate(keyAliasProvider)
+            ?: throw GradleException("签名 keystore 中不存在 alias「$keyAliasProvider」。")
+        val actualSha256 = MessageDigest.getInstance("SHA-256")
+            .digest(certificate.encoded)
+            .joinToString("") { "%02X".format(it) }
+        if (!actualSha256.equals(expectedSha256, ignoreCase = true)) {
+            throw GradleException(
+                "正式发布版签名证书指纹不匹配，构建已中止。\n" +
+                    "  期望: $expectedSha256\n" +
+                    "  实际: $actualSha256\n" +
+                    "若这是有意换 key，请同步更新 app/build.gradle.kts 中的 pinnedReleaseCertSha256，" +
+                    "并知悉：已安装的老用户将无法覆盖升级。"
+            )
+        }
+        logger.lifecycle("Release signing OK: SHA-256 = $actualSha256")
+    }
+}
+
+tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
+    dependsOn("checkReleaseSigning")
 }
 
 dependencies {

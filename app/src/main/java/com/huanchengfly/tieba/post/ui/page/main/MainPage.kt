@@ -45,6 +45,7 @@ import com.huanchengfly.tieba.post.ui.utils.DevicePosture
 import com.huanchengfly.tieba.post.ui.utils.MainNavigationContentPosition
 import com.huanchengfly.tieba.post.ui.utils.MainNavigationType
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoadHorizontalPager
+import com.huanchengfly.tieba.post.ui.widgets.compose.LocalBarsAutoHideState
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import com.huanchengfly.tieba.post.utils.appPreferences
 import androidx.navigation.NavHostController
@@ -249,6 +250,13 @@ fun MainPage(
         coroutineScope.emitGlobalEvent(
             GlobalEvent.Refresh(navigationItems[it].id)
         )
+    }
+    // 切换 tab 时把栏复位：pager 会缓存复用页面内容，不会重新触发 MyScaffold 的
+    // 首次组合复位，若不显式处理，切回已访问过的 tab 会保持「栏已收起」的状态。
+    val barsAutoHideState = LocalBarsAutoHideState.current
+    val currentPageIndex = pagerState.currentPage
+    LaunchedEffect(currentPageIndex) {
+        barsAutoHideState?.show()
     }
     ProvideNavigator(navigator = navigator) {
         NavigationWrapper(

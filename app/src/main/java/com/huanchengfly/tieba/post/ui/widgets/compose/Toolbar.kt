@@ -344,6 +344,7 @@ fun TopAppBarContainer(
     }
     val coroutineScope = rememberCoroutineScope()
     Column(modifier) {
+        // 状态栏底色不参与隐藏：系统栏区域始终有背景，避免收起后透出内容。
         Spacer(
             modifier = statusBarModifier
                 .fillMaxWidth()
@@ -352,24 +353,30 @@ fun TopAppBarContainer(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onDoubleClick = {
-                        Log.i("TopAppBarContainer", "TopAppBarContainer: onDoubleClick")
-                        coroutineScope.emitGlobalEvent(GlobalEvent.ScrollToTop)
-                    },
-                    onClick = {},
-                ),
-            content = topBar
-        )
-        content?.let {
+                .barsAutoHide(BarEdge.Top)
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(color = ExtendedTheme.colors.topBar),
-            ) {
-                content()
+                    .combinedClickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onDoubleClick = {
+                            Log.i("TopAppBarContainer", "TopAppBarContainer: onDoubleClick")
+                            coroutineScope.emitGlobalEvent(GlobalEvent.ScrollToTop)
+                        },
+                        onClick = {},
+                    ),
+                content = topBar
+            )
+            content?.let {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(color = ExtendedTheme.colors.topBar),
+                ) {
+                    content()
+                }
             }
         }
     }

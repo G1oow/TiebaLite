@@ -70,6 +70,12 @@ fun MyScaffold(
     contentColor: Color = contentColorFor(backgroundColor),
     content: @Composable (PaddingValues) -> Unit
 ) {
+    // 新页面进入时把顶栏/底栏恢复成展开状态：栏杆状态是 Activity 级共享的，
+    // 否则从「已收起」的页面点进下一层，新页面会一进来就没有顶栏。
+    val barsAutoHideState = LocalBarsAutoHideState.current
+    LaunchedEffect(barsAutoHideState) {
+        barsAutoHideState?.show()
+    }
     CompositionLocalProvider(LocalSnackbarHostState provides scaffoldState.snackbarHostState) {
         Scaffold(
             modifier,

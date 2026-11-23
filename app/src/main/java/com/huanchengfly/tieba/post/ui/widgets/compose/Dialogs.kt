@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -47,6 +48,7 @@ import com.huanchengfly.tieba.post.R
 import com.huanchengfly.tieba.post.arch.BaseComposeActivity.Companion.LocalWindowSizeClass
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.common.windowsizeclass.WindowWidthSizeClass
+import com.huanchengfly.tieba.post.ui.common.windowsizeclass.AdaptiveLayout
 import com.huanchengfly.tieba.post.ui.widgets.compose.dialogs.AnyPopDialog
 import com.huanchengfly.tieba.post.ui.widgets.compose.dialogs.AnyPopDialogProperties
 import com.huanchengfly.tieba.post.ui.widgets.compose.dialogs.DirectionState
@@ -383,15 +385,12 @@ fun Dialog(
     content: @Composable (DialogScope.() -> Unit),
 ) {
     val windowWidthSizeClass = LocalWindowSizeClass.current.widthSizeClass
+    val isCompact = windowWidthSizeClass == WindowWidthSizeClass.Compact
     BaseDialog(
         modifier = modifier,
         dialogState = dialogState,
         onDismiss = onDismiss,
-        direction = if (windowWidthSizeClass == WindowWidthSizeClass.Compact) {
-            DirectionState.BOTTOM
-        } else {
-            DirectionState.CENTER
-        },
+        direction = if (isCompact) DirectionState.BOTTOM else DirectionState.CENTER,
         cancelable = cancelable,
         cancelableOnTouchOutside = cancelableOnTouchOutside,
     ) {
@@ -399,11 +398,13 @@ fun Dialog(
             modifier = modifier
                 .wrapContentHeight()
                 .animateContentSize()
-                .fillMaxWidth(
-                    fraction = if (windowWidthSizeClass == WindowWidthSizeClass.Compact) {
-                        1f
+                .then(
+                    if (isCompact) {
+                        Modifier.fillMaxWidth()
                     } else {
-                        0.6f
+                        // 宽屏下不再按窗口百分比缩放：窗口越宽，对话框越宽会把
+                        // 一个两行文案撑成横贯全屏的条带。改用绝对上限。
+                        Modifier.widthIn(max = AdaptiveLayout.DialogMaxWidth)
                     }
                 )
                 .padding(16.dp)

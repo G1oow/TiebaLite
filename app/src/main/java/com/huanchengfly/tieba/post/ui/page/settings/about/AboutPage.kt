@@ -60,13 +60,18 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.BackNavigationIcon
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import com.huanchengfly.tieba.post.ui.widgets.compose.TitleCentredToolbar
 import com.huanchengfly.tieba.post.update.UpdateDownloadProgress
-import com.huanchengfly.tieba.post.update.UpdateOrigin
 import com.huanchengfly.tieba.post.update.UpdateSource
 import com.huanchengfly.tieba.post.update.UpdateUiState
 import com.huanchengfly.tieba.post.update.UpdateViewModel
 import com.huanchengfly.tieba.post.utils.appPreferences
 import androidx.compose.runtime.collectAsState
 
+/**
+ * fork 仓库地址：关于页「项目地址」卡片与 Release 兜底链接共用同一来源，
+ * 必须与 UpdateDownloader 的 GitHub 渠道根地址（GITHUB_API_ROOT）指向同一仓库。
+ */
+private const val REPO_URL = "https://github.com/G1oow/TiebaLite"
+private const val REPO_DISPLAY = "github.com/G1oow/TiebaLite"
 @Composable
 fun AboutPage(
     navigator: NavHostController,
@@ -76,7 +81,6 @@ fun AboutPage(
     // 与启动路径共用同一更新模块（同一 ViewModel / 比对 / 元数据解析）
     val updateViewModel: UpdateViewModel = hiltViewModel()
     val updateState by updateViewModel.state.collectAsState()
-    val updateOrigin by updateViewModel.origin.collectAsState()
     val context = LocalContext.current
     val currentVersion = BuildConfig.VERSION_NAME
 
@@ -149,52 +153,6 @@ fun AboutPage(
                     }
                 )
             )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Update Origin Selector（更新渠道：Codeberg 主 / GitHub 镜像）
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                shape = RoundedCornerShape(16.dp),
-                backgroundColor = ExtendedTheme.colors.text.copy(alpha = 0.06f),
-                elevation = 0.dp
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        stringResource(id = R.string.text_update_origin_title),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = ExtendedTheme.colors.text
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        stringResource(id = R.string.text_update_origin_desc),
-                        color = ExtendedTheme.colors.textSecondary,
-                        fontSize = 12.sp
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        UpdateOriginOption(
-                            label = stringResource(id = R.string.text_update_origin_codeberg),
-                            selected = updateOrigin == UpdateOrigin.CODEBERG,
-                            onClick = { updateViewModel.setOrigin(UpdateOrigin.CODEBERG) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        UpdateOriginOption(
-                            label = stringResource(id = R.string.text_update_origin_github),
-                            selected = updateOrigin == UpdateOrigin.GITHUB,
-                            onClick = { updateViewModel.setOrigin(UpdateOrigin.GITHUB) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -295,7 +253,7 @@ fun AboutPage(
                                     onClick = {
                                         try {
                                             val url = state.release.htmlUrl.ifEmpty {
-                                                "https://codeberg.org/min09577/TiebaLite/releases"
+                                                "$REPO_URL/releases"
                                             }
                                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                                             context.startActivity(intent)
@@ -425,7 +383,7 @@ fun AboutPage(
                     TextButton(
                         onClick = {
                             try {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/qaqmin/TiebaLite"))
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL))
                                 context.startActivity(intent)
                             } catch (e: Exception) {
                                 context.toastShort("无法打开链接")
@@ -435,7 +393,7 @@ fun AboutPage(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            "github.com/qaqmin/TiebaLite",
+                            REPO_DISPLAY,
                             color = ExtendedTheme.colors.accent,
                             fontSize = 13.sp
                         )
@@ -468,39 +426,6 @@ fun AboutPage(
             )
 
             Spacer(modifier = Modifier.height(32.dp))
-        }
-    }
-}
-
-/**
- * 更新渠道选项：选中态用主题色实心按钮，未选中用描边按钮（与页面其他按钮同风格）。
- */
-@Composable
-private fun UpdateOriginOption(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    if (selected) {
-        Button(
-            onClick = onClick,
-            modifier = modifier,
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                backgroundColor = ExtendedTheme.colors.accent,
-                contentColor = Color.White
-            )
-        ) {
-            Text(label, fontWeight = FontWeight.Medium, fontSize = 13.sp)
-        }
-    } else {
-        OutlinedButton(
-            onClick = onClick,
-            modifier = modifier,
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Text(label, fontWeight = FontWeight.Medium, fontSize = 13.sp)
         }
     }
 }

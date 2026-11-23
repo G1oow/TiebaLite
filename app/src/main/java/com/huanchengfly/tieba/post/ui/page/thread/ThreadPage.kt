@@ -129,12 +129,14 @@ import com.huanchengfly.tieba.post.ui.page.ProvideNavigator
 import com.huanchengfly.tieba.post.ui.utils.bottomBarInsetsPadding
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.BackNavigationIcon
+import com.huanchengfly.tieba.post.ui.widgets.compose.BarEdge
 import com.huanchengfly.tieba.post.ui.widgets.compose.BlockTip
 import com.huanchengfly.tieba.post.ui.widgets.compose.BlockableContent
 import com.huanchengfly.tieba.post.ui.widgets.compose.Button
 import com.huanchengfly.tieba.post.ui.widgets.compose.Card
 import com.huanchengfly.tieba.post.ui.widgets.compose.Chip
 import com.huanchengfly.tieba.post.ui.widgets.compose.ConfirmDialog
+import com.huanchengfly.tieba.post.ui.widgets.compose.barsAutoHide
 import com.huanchengfly.tieba.post.ui.widgets.compose.Container
 import com.huanchengfly.tieba.post.ui.widgets.compose.ErrorScreen
 import com.huanchengfly.tieba.post.ui.widgets.compose.HorizontalDivider
@@ -1595,63 +1597,68 @@ private fun BottomBar(
     Column(
         modifier = Modifier.background(ExtendedTheme.colors.threadBottomBar)
     ) {
-        Row(
-            modifier = Modifier
-                .height(IntrinsicSize.Min)
-                .then(modifier)
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (user.get { is_login } == 1 && !LocalContext.current.appPreferences.hideReply) {
-                Avatar(
-                    data = StringUtil.getAvatarUrl(user.get { portrait }),
-                    size = Sizes.Tiny,
-                    contentDescription = user.get { name },
-                    modifier = Modifier
-                        .padding(vertical = 8.dp)
-                )
+        // 回复栏跟随滑动隐藏；下方手势热区占位不参与隐藏。
+        Column(modifier = Modifier.barsAutoHide(BarEdge.Bottom)) {
+            Row(
+                modifier = Modifier
+                    .height(IntrinsicSize.Min)
+                    .then(modifier)
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (user.get { is_login } == 1 && !LocalContext.current.appPreferences.hideReply) {
+                    Avatar(
+                        data = StringUtil.getAvatarUrl(user.get { portrait }),
+                        size = Sizes.Tiny,
+                        contentDescription = user.get { name },
+                        modifier = Modifier
+                            .padding(vertical = 8.dp)
+                    )
 
-                Row(
-                    modifier = Modifier
-                        .padding(vertical = 8.dp)
-                        .weight(1f)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(ExtendedTheme.colors.bottomBarSurface)
-                        .clickable(onClick = onClickReply)
-                        .padding(8.dp),
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.tip_reply_thread),
-                        style = MaterialTheme.typography.caption,
-                        color = ExtendedTheme.colors.onBottomBarSurface,
+                    Row(
+                        modifier = Modifier
+                            .padding(vertical = 8.dp)
+                            .weight(1f)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(ExtendedTheme.colors.bottomBarSurface)
+                            .clickable(onClick = onClickReply)
+                            .padding(8.dp),
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.tip_reply_thread),
+                            style = MaterialTheme.typography.caption,
+                            color = ExtendedTheme.colors.onBottomBarSurface,
+                        )
+                    }
+                } else {
+                    Spacer(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
                     )
                 }
-            } else {
-                Spacer(modifier = Modifier
-                    .weight(1f)
-                    .height(40.dp))
-            }
 
-            BottomBarAgreeBtn(
-                hasAgreed = hasAgreed,
-                agreeNum = agreeNum,
-                onClick = onAgree,
-                modifier = Modifier.fillMaxHeight()
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .clickable(onClick = onClickMore)
-                    .padding(horizontal = 4.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.MoreVert,
-                    contentDescription = stringResource(id = R.string.btn_more),
-                    tint = ExtendedTheme.colors.textSecondary,
+                BottomBarAgreeBtn(
+                    hasAgreed = hasAgreed,
+                    agreeNum = agreeNum,
+                    onClick = onAgree,
+                    modifier = Modifier.fillMaxHeight()
                 )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .clickable(onClick = onClickMore)
+                        .padding(horizontal = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.MoreVert,
+                        contentDescription = stringResource(id = R.string.btn_more),
+                        tint = ExtendedTheme.colors.textSecondary,
+                    )
+                }
             }
         }
 

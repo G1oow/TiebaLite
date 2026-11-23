@@ -55,6 +55,8 @@ import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.common.theme.compose.White
 import com.huanchengfly.tieba.post.ui.utils.MainNavigationContentPosition
 import com.huanchengfly.tieba.post.ui.utils.bottomBarInsetsHeight
+import com.huanchengfly.tieba.post.ui.widgets.compose.BarEdge
+import com.huanchengfly.tieba.post.ui.widgets.compose.barsAutoHide
 import com.huanchengfly.tieba.post.ui.widgets.compose.AccountNavIcon
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
@@ -382,54 +384,59 @@ fun BottomNavigation(
     Column(
         modifier = Modifier.background(themeColors.bottomBar)
     ) {
-        BottomNavigationDivider(themeColors)
-        BottomNavigation(
-            backgroundColor = themeColors.bottomBar,
-            elevation = 0.dp,
+        // 栏体跟随滑动隐藏；系统手势热区占位留在外面，收起后仍保护底部手势区。
+        Column(
+            modifier = Modifier.barsAutoHide(BarEdge.Bottom)
         ) {
-            navigationItems.fastForEachIndexed { index, navigationItem ->
-                BottomNavigationItem(
-                    selected = index == currentPosition,
-                    onClick = {
-                        if (index == currentPosition) {
-                            onReselected(index)
-                        } else {
-                            onChangePosition(index)
-                        }
-                        navigationItem.onClick?.invoke()
-                    },
-                    icon = {
-                        Box {
-                            Icon(
-                                painter = rememberAnimatedVectorPainter(
-                                    animatedImageVector = navigationItem.icon(),
-                                    atEnd = index == currentPosition
-                                ),
-                                contentDescription = navigationItem.title(index == currentPosition),
-                                modifier = Modifier.size(24.dp),
-                            )
-                            if (navigationItem.badge) {
-                                Text(
-                                    textAlign = TextAlign.Center,
-                                    fontSize = 10.sp,
-                                    color = White,
-                                    text = navigationItem.badgeText ?: "",
-                                    modifier = Modifier
-                                        .size(14.dp)
-                                        .clip(CircleShape)
-                                        .align(Alignment.TopEnd)
-                                        .background(
-                                            color = MaterialTheme.colors.secondary,
-                                            shape = CircleShape
-                                        ),
-                                )
+            BottomNavigationDivider(themeColors)
+            BottomNavigation(
+                backgroundColor = themeColors.bottomBar,
+                elevation = 0.dp,
+            ) {
+                navigationItems.fastForEachIndexed { index, navigationItem ->
+                    BottomNavigationItem(
+                        selected = index == currentPosition,
+                        onClick = {
+                            if (index == currentPosition) {
+                                onReselected(index)
+                            } else {
+                                onChangePosition(index)
                             }
-                        }
-                    },
-                    selectedContentColor = MaterialTheme.colors.secondary,
-                    unselectedContentColor = themeColors.unselected,
-                    alwaysShowLabel = false
-                )
+                            navigationItem.onClick?.invoke()
+                        },
+                        icon = {
+                            Box {
+                                Icon(
+                                    painter = rememberAnimatedVectorPainter(
+                                        animatedImageVector = navigationItem.icon(),
+                                        atEnd = index == currentPosition
+                                    ),
+                                    contentDescription = navigationItem.title(index == currentPosition),
+                                    modifier = Modifier.size(24.dp),
+                                )
+                                if (navigationItem.badge) {
+                                    Text(
+                                        textAlign = TextAlign.Center,
+                                        fontSize = 10.sp,
+                                        color = White,
+                                        text = navigationItem.badgeText ?: "",
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clip(CircleShape)
+                                            .align(Alignment.TopEnd)
+                                            .background(
+                                                color = MaterialTheme.colors.secondary,
+                                                shape = CircleShape
+                                            ),
+                                    )
+                                }
+                            }
+                        },
+                        selectedContentColor = MaterialTheme.colors.secondary,
+                        unselectedContentColor = themeColors.unselected,
+                        alwaysShowLabel = false
+                    )
+                }
             }
         }
         Spacer(modifier = Modifier.height(bottomBarInsetsHeight()))

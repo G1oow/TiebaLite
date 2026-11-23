@@ -5,13 +5,17 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.widget.Toast
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
@@ -21,6 +25,8 @@ import com.huanchengfly.tieba.post.activities.BaseActivity
 import com.huanchengfly.tieba.post.ui.common.theme.compose.TiebaLiteTheme
 import com.huanchengfly.tieba.post.ui.common.windowsizeclass.WindowSizeClass
 import com.huanchengfly.tieba.post.ui.common.windowsizeclass.calculateWindowSizeClass
+import com.huanchengfly.tieba.post.ui.widgets.compose.LocalBarsAutoHideState
+import com.huanchengfly.tieba.post.ui.widgets.compose.rememberBarsAutoHideState
 import com.huanchengfly.tieba.post.utils.AccountUtil.LocalAccountProvider
 import com.huanchengfly.tieba.post.utils.ThemeUtil
 
@@ -84,10 +90,21 @@ abstract class BaseComposeActivity : BaseActivity() {
                 }
 
                 LocalAccountProvider {
+                    val windowSizeClass = calculateWindowSizeClass(activity = this)
+                    val barsAutoHideState = rememberBarsAutoHideState()
                     CompositionLocalProvider(
-                        LocalWindowSizeClass provides calculateWindowSizeClass(activity = this)
+                        LocalWindowSizeClass provides windowSizeClass,
+                        LocalBarsAutoHideState provides barsAutoHideState,
                     ) {
-                        Content()
+                        // 嵌套滚动连接挂在整个页面内容之上：滚动事件从内层列表
+                        // 向上冒泡到这里，只做方向观察、不消费增量（见 BarsAutoHideState）。
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .nestedScroll(barsAutoHideState.nestedScrollConnection)
+                        ) {
+                            Content()
+                        }
                     }
                 }
             }

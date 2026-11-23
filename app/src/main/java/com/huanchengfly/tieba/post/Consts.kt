@@ -19,11 +19,12 @@ object IntentConfig {
 }
 
 /**
- * 项目溯源信息（内部保留，请勿在 UI 中引用）
+ * 项目溯源信息（内部保留，请勿在 UI 中引用）：指向本仓库 fork。
  */
 object ProjectSignature {
-    const val MAINTAINER = "qaqmin"
-    const val REPO_URL = "https://github.com/qaqmin/TiebaLite"
-    const val PROFILE_URL = "https://github.com/qaqmin"
-    const val FINGERPRINT = "TBL::qaqmin::4.0-dev"
+    const val MAINTAINER = "G1oow"
+    const val REPO_URL = "https://github.com/G1oow/TiebaLite"
+    const val PROFILE_URL = "https://github.com/G1oow"
+    const val FINGERPRINT = "TBL::G1oow::4.0-dev"
+
 }

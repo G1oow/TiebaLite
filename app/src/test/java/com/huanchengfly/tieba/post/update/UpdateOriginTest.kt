@@ -6,9 +6,9 @@ import org.junit.Test
 
 /**
  * 更新渠道（平台来源）与 stable 通道选版：
- * - rootFor/otherOrigin：GitHub 为默认主渠道，Codeberg 为镜像/回退渠道
- * - pickLatestStable：列表筛选替代 /releases/latest（Codeberg 的 latest 排除 prerelease，
- *   只有预发布时 404），判据剔除 prerelease 与 ai tag，base 优先取最大
+ * - apiRoot：唯一来源是本仓库 fork 的 GitHub Releases（Codeberg 备用渠道已移除）
+ * - pickLatestStable：列表筛选替代 /releases/latest（latest 只给单个 release，
+ *   无正式版时 404），判据剔除 prerelease 与 ai tag，base 优先取最大
  */
 class UpdateOriginTest {
 
@@ -17,29 +17,21 @@ class UpdateOriginTest {
         isPrerelease = prerelease, apkUrl = null, apkName = null, apkDigest = null
     )
 
-    // ---- 平台来源映射 ----
+    // ---- 更新来源（单一 GitHub 渠道，指向本仓库 fork）----
 
     @Test
-    fun `rootFor maps codeberg and github to their api roots`() {
-        assertEquals(
-            "https://codeberg.org/api/v1/repos/min09577/TiebaLite",
-            UpdateDownloader.rootFor(UpdateOrigin.CODEBERG)
-        )
-        assertEquals(
-            "https://api.github.com/repos/qaqmin/TiebaLite",
-            UpdateDownloader.rootFor(UpdateOrigin.GITHUB)
-        )
-    }
-
-    @Test
-    fun `default origin is github`() {
-        assertEquals(UpdateOrigin.GITHUB, DEFAULT_ORIGIN)
-    }
-
-    @Test
-    fun `otherOrigin flips both ways`() {
-        assertEquals(UpdateOrigin.GITHUB, UpdateDownloader.otherOrigin(UpdateOrigin.CODEBERG))
-        assertEquals(UpdateOrigin.CODEBERG, UpdateDownloader.otherOrigin(UpdateOrigin.GITHUB))
+    fun `api root points to the fork repository`() {
+        // debug 变体允许系统属性覆盖（本地 mock 用），清掉以保证断言的是默认值
+        val previous = System.getProperty("tieba.update.apiRoot")
+        System.clearProperty("tieba.update.apiRoot")
+        try {
+            assertEquals(
+                "https://api.github.com/repos/G1oow/TiebaLite",
+                UpdateDownloader.apiRoot
+            )
+        } finally {
+            if (previous != null) System.setProperty("tieba.update.apiRoot", previous)
+        }
     }
 
     // ---- stable 通道候选集选版 ----
@@ -54,8 +46,8 @@ class UpdateOriginTest {
 
     @Test
     fun `stable excludes prerelease and ai tags`() {
-        // Codeberg 的真实 ai release 是 prerelease=true；GitHub 侧 ai release
-        // prerelease=false——两个判据都必须有，否则会选到预发布
+        // GitHub 的 ai release 实际未加 --prerelease（prerelease=false），
+        // 只按 isPrerelease 筛会漏，两个判据都必须有，否则会选到预发布
         val selected = pickLatestStable(
             listOf(
                 rel("v4.0.0-ai.51", prerelease = true),

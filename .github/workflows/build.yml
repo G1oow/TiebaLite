@@ -1,19 +1,37 @@
-name: Build Release APK
+name: Build & Release APK
 
-# 触发策略：workflow_dispatch（手动验证）+ tag 推送（v*）自动构建并发布。
-# 不挂分支 push 触发——按约定避免频繁消耗 GitHub Actions；tag 推送只在发版时发生
-# （一次 release ≈ 一次 10-15 分钟构建，公开仓库 Actions 时长免费，对 5000 次/小时
-# 的 API 配额消耗可忽略）。
+# 触发策略
+#   - workflow_dispatch：手动构建；可选「同时发布到 Releases」，填入 tag 即可发版，
+#     不填则用 application.properties 的 versionName 自动拼成 vX.Y.Z。
+#   - push tag v*：发版自动化（与手动发布走同一套发布步骤）。
+# 分支 push 不触发——避免日常提交反复占用 Actions 额度。
 #
-# 双宿主分工：GitHub 线 = tag 自动构建 + 自动发布（release 用自动注入的
-# GITHUB_TOKEN，无需任何 Secret——签名 keystore 本就在仓库内）；
-# Mac 构建机线 = 验证/兜底产出；Codeberg 线保留但暂不使用
-# （其 runner 有 10 分钟硬杀，等基础设施恢复）。
+# 发布产物使用仓库内固定的发布签名（app/tblite_debug.jks），
+# 构建期由 :app:checkReleaseSigning 校验证书 SHA-256，发布前再用 apksigner 复核 APK 的实际签名，
+# 任一环节不符即中止，避免「同版本号、不同签名」导致用户无法覆盖升级。
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: '发布 tag（留空则用 v{versionName}，例如 v4.0.63）'
+        required: false
+        default: ''
+      publish:
+        description: '构建后发布到 GitHub Release'
+        type: boolean
+        default: true
+      prerelease:
+        description: '标记为预发布（prerelease）'
+        type: boolean
+        default: false
   push:
     tags: ['v*']
+
+# 同一 tag / 同一分支只保留最新一次运行，避免重复构建抢占 runner
+concurrency:
+  group: build-release-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -21,6 +39,11 @@ jobs:
     timeout-minutes: 180
     permissions:
       contents: write
+    env:
+      # 固定发布签名的口令（keystore 本身随仓库分发：
+      # 它只保证「同名包可持续升级」，不是防伪手段）。
+      TBLITE_KEYSTORE_PASSWORD: tiebalite
+      TBLITE_KEY_PASSWORD: tiebalite
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,17 +68,9 @@ jobs:
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           ls "$SDK/platforms" "$SDK/build-tools"
 
-      # keystore.properties 不入库（.gitignore），CI 现场生成——与 Codeberg 线同款，
-      # 指向仓库内已跟踪的 app/tblite_debug.jks（alias/密码见文件内容）
-      - name: Generate keystore.properties
-        run: |
-          printf 'keystore.file=app/tblite_debug.jks\nkeystore.password=tiebalite\nkeystore.key.alias=tiebalite\nkeystore.key.password=tiebalite\n' > keystore.properties
-          cat keystore.properties
-
       # sweet-dependency 配置把官方源覆盖成了 aliyun 国内镜像（为 Codeberg/国内网络加的），
-      # GitHub runner 在海外，拉镜像超时/不可用导致插件标记 artifact 解析失败
-      # （与 Codeberg runner 同型失败）。CI 侧改回官方默认源——只改工作副本，不入库，
-      # 本地与 Mac 构建机（国内网络）继续使用镜像配置。
+      # GitHub runner 在海外，拉镜像超时/不可用导致插件标记 artifact 解析失败。
+      # CI 侧改回官方默认源——只改工作副本，不入库。
       - name: Use official repositories on CI
         run: |
           python3 - <<'EOF'
@@ -72,21 +87,38 @@ jobs:
           EOF
           grep -A 12 "^repositories:" gradle/sweet-dependency/sweet-dependency-config.yaml
 
-      # 内存调优：GitHub runner 7G/2C，对齐 Codeberg tag 路径的实测组合——
-      # Gradle daemon 压到 2048m 给编译期让路，Kotlin daemon 4096m（编译期峰值所在），
-      # workers.max=1 砍掉与两个 daemon 并行的 worker JVM 峰值。追加同名键后者胜出。
+      # 内存调优：GitHub runner 7G/2C。Gradle daemon 压到 2048m 给编译期让路，
+      # Kotlin daemon 4096m（编译期峰值所在），workers.max=1 砍掉并行 worker JVM 峰值。
+      # 追加同名键后者胜出。
       - name: Tune Gradle for release build
         run: |
           printf '\norg.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8 --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED\nkotlin.daemon.jvmargs=-Xmx4096m\norg.gradle.workers.max=1\n' >> gradle.properties
           echo "=== gradle.properties 尾部（确认覆盖生效）==="
           tail -6 gradle.properties
 
+      # 发布签名由 build.gradle.kts 固定指向 app/tblite_debug.jks；
+      # assembleRelease 依赖 checkReleaseSigning，签名缺失或证书指纹不符会直接失败。
       - name: Build release APK
         run: |
           chmod +x ./gradlew
           ./gradlew --no-daemon --console=plain clean assembleRelease --stacktrace
           echo "=== 构建产物 ==="
           ls -lh app/build/outputs/apk/release/
+
+      # 二次校验：直接读 APK 里的签名证书，确认与发布契约一致
+      # （防止 Gradle 侧配置被绕过、或错误地签成本机 debug key）。
+      - name: Verify APK signature
+        run: |
+          SDK=/usr/local/lib/android/sdk
+          APKSIGNER="$SDK/build-tools/36.0.0/apksigner"
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          "$APKSIGNER" verify --print-certs "$APK" | tee apk-certs.txt
+          EXPECTED=F7E02F10C7C9E83B943F8DEEE786B270330416C710CF5CFBCE73027AD19DA759
+          if ! grep -qi "SHA-256 digest: $EXPECTED" apk-certs.txt; then
+            echo "::error::APK 签名证书与发布契约不符（期望 SHA-256 $EXPECTED）"
+            exit 1
+          fi
+          echo "APK 签名校验通过"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -95,27 +127,50 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
-      # 自动发布（仅 tag 触发）：gh CLI 预装在 runner，凭据用自动注入的 GITHUB_TOKEN。
-      # 不删旧 release——已存在则更新说明并 clobber 覆盖资产，避免"删了建不回"的半程状态。
+      # 解析发布参数：tag 推送用 ref 名，手动触发用输入或 versionName。
+      - name: Resolve release inputs
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+            if [ -z "$TAG" ]; then
+              VERSION_NAME=$(grep -E '^versionName=' application.properties | head -1 | cut -d= -f2 | tr -d '[:space:]')
+              [ -n "$VERSION_NAME" ] || { echo "::error::无法从 application.properties 读取 versionName"; exit 1; }
+              TAG="v$VERSION_NAME"
+            fi
+            PUBLISH="${{ inputs.publish }}"
+            PRERELEASE="${{ inputs.prerelease }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+            PUBLISH="true"
+            case "$TAG" in *-ai*) PRERELEASE="true" ;; *) PRERELEASE="false" ;; esac
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "发布参数: tag=$TAG publish=$PUBLISH prerelease=$PRERELEASE"
+
+      # 发布：gh CLI 预装在 runner，凭据用自动注入的 GITHUB_TOKEN。
+      # 不删旧 release——已存在则更新说明并 clobber 覆盖资产，避免「删了建不回」的半程状态。
       - name: Publish to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: steps.release.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          PRERELEASE: ${{ steps.release.outputs.prerelease }}
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
           APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
-          # 发布说明：从 AI_CHANGELOG.md 提取本版中文段落（与 Codeberg 线同源）
           NOTES=$(awk -v tag="$TAG" 'index($0, "## " tag " ") == 1 || $0 == "## " tag {found=1; next} found && index($0, "## ") == 1 {exit} found {print}' AI_CHANGELOG.md)
           CN=$(printf '%s\n' "$NOTES" | awk 'index($0,"### ")==1 && /中文/{found=1; next} index($0,"### ")==1 {found=0} found')
           [ -n "$CN" ] || CN="TiebaLite $TAG"
           printf '%s\n' "$CN" > notes.md
-          # ai 体验版标 prerelease
-          PRERELEASE=""
-          case "$TAG" in *-ai*) PRERELEASE="--prerelease";; esac
+          PRERELEASE_FLAG=""
+          [ "$PRERELEASE" = "true" ] && PRERELEASE_FLAG="--prerelease"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
-            gh release edit "$TAG" --title "$TAG" --notes-file notes.md $PRERELEASE
+            gh release edit "$TAG" --title "$TAG" --notes-file notes.md $PRERELEASE_FLAG
           else
-            gh release create "$TAG" "$APK" --title "$TAG" --notes-file notes.md --latest $PRERELEASE
+            # 手动触发时 tag 可能尚不存在：显式指定 target 让 gh 一并创建
+            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md $PRERELEASE_FLAG
           fi
-          echo "published: https://github.com/qaqmin09577/TiebaLite/releases/tag/$TAG"
+          echo "published: https://github.com/${{ github.repository }}/releases/tag/$TAG"

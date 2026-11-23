@@ -159,6 +159,12 @@ open class AppPreferencesUtils private constructor(ctx: Context) {
 
     var liftUpBottomBar by DataStoreDelegates.boolean(defaultValue = true)
 
+    /** 顶栏 / 底栏是否跟随滑动自动隐藏。 */
+    var hideBarsOnScroll by DataStoreDelegates.boolean(
+        defaultValue = true,
+        key = "hide_bars_on_scroll"
+    )
+
     var listItemsBackgroundIntermixed by DataStoreDelegates.boolean(defaultValue = true)
 
     var listSingle by DataStoreDelegates.boolean(defaultValue = false)

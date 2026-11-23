@@ -12,63 +12,36 @@ import java.security.DigestOutputStream
 import java.security.MessageDigest
 
 /**
- * 更新检查平台来源（用户可在关于页选择，DataStore 持久化）。
- * 主渠道为 GitHub（qaqmin），Codeberg 为镜像/备用：任一端发了新版本都应能检测到。
- */
-enum class UpdateOrigin {
-    CODEBERG,
-    GITHUB
-}
-
-/** 默认平台来源：GitHub（当前主构建线）。 */
-val DEFAULT_ORIGIN = UpdateOrigin.GITHUB
-
-/**
  * 更新元数据拉取 + APK 下载。只用 HttpURLConnection（无 token，匿名访问 Releases API），
  * debug 构建允许通过系统属性覆盖 API 根地址用于本地 mock。
+ *
+ * 更新来源只有本仓库 fork 的 GitHub Releases：此前的 Codeberg 备用渠道已移除，
+ * 免得备用渠道把用户提示去升级成别的仓库的构建。
  */
 object UpdateDownloader {
 
     private const val TAG = "UpdateDownloader"
 
-    private const val CODEBERG_API_ROOT = "https://codeberg.org/api/v1/repos/min09577/TiebaLite"
-
-    private const val GITHUB_API_ROOT = "https://api.github.com/repos/qaqmin/TiebaLite"
-
-    /**
-     * 各平台 Releases API 根地址。Gitea/Forgejo 的 release/asset 字段名与 GitHub 一致
-     * （tag_name/name/html_url/body/prerelease/assets[].browser_download_url），
-     * 解析与下载逻辑两端通用，只有根地址不同。
-     */
-    fun rootFor(origin: UpdateOrigin): String = when (origin) {
-        UpdateOrigin.CODEBERG -> CODEBERG_API_ROOT
-        UpdateOrigin.GITHUB -> GITHUB_API_ROOT
-    }
-
-    /** 另一平台来源（启动检查主渠道失败时静默回退用）。 */
-    fun otherOrigin(origin: UpdateOrigin): UpdateOrigin = when (origin) {
-        UpdateOrigin.CODEBERG -> UpdateOrigin.GITHUB
-        UpdateOrigin.GITHUB -> UpdateOrigin.CODEBERG
-    }
+    private const val GITHUB_API_ROOT = "https://api.github.com/repos/G1oow/TiebaLite"
 
     /** debug 构建可覆盖的 API 根地址（本地 mock 用），release 恒为官方地址。 */
     val apiRoot: String
         get() = if (BuildConfig.DEBUG) {
-            System.getProperty("tieba.update.apiRoot") ?: rootFor(DEFAULT_ORIGIN)
+            System.getProperty("tieba.update.apiRoot") ?: GITHUB_API_ROOT
         } else {
-            rootFor(DEFAULT_ORIGIN)
+            GITHUB_API_ROOT
         }
 
     /**
      * stable 通道端点：recent releases 中筛"非预发布且非 ai tag"取版本最大者。
-     * 不用 /releases/latest：Codeberg (Forgejo) 的 latest 语义排除 prerelease，
-     * 平台只有预发布时该端点 404（v4.0.0-ai.51 发布时实测）；列表筛选两端行为一致。
+     * 不用 /releases/latest：该端点只返回单个 release，排除预发布时可能直接 404；
+     * 列表筛选既能一次剔掉 prerelease 与 ai tag，也让两条通道共用同一份快照。
      * App 侧仍二次剔除 ai tag（GitHub 的 ai release prerelease=false，只按
      * isPrerelease 筛会漏，该护栏是 stable/ai 通道分离的最后防线）。
      *
      * [cacheDir] 非空时启用 ETag 条件请求：GitHub 匿名 API 限额 60 次/小时/IP，
      * 命中 304 的请求不计入限额（GitHub 官方行为），可显著降低用户撞 403 的概率；
-     * Codeberg (Forgejo) 同样支持 ETag。403/网络失败仍返回 null，由调用方回退备用渠道。
+     * 403/网络失败仍返回 null。
      */
     fun fetchStableRelease(root: String = apiRoot, cacheDir: File? = null): GitHubRelease? {
         val json = httpGetConditional("${root.trimEnd('/')}/releases?per_page=10", cacheDir) ?: return null
@@ -172,7 +145,7 @@ object UpdateDownloader {
     /**
      * 带 ETag 条件请求的 GET：[cacheDir] 为空时退化为普通 GET。
      * 缓存按 URL 哈希落盘（etag + body 成对），304 时直接复用缓存 body——
-     * GitHub 明确 304 不计入匿名限额，Forgejo 同样支持 ETag。
+     * GitHub 明确 304 不计入匿名限额。
      */
     private fun httpGetConditional(url: String, cacheDir: File?): String? {
         if (cacheDir == null) return httpGet(url)
@@ -270,8 +243,8 @@ fun pickLatestAi(candidates: List<GitHubRelease>): GitHubRelease? {
 
 /**
  * stable 通道候选集选版（生产侧纯函数，可 JVM 单测），判据与 [pickLatestAi] 镜像：
- * 1. 剔除 prerelease（两平台正式版均为非预发布；Codeberg 的 ai release 是 prerelease=true，
- *    仅靠 isPrerelease 剔除会在 GitHub 侧漏掉 prerelease=false 的 ai tag）；
+ * 1. 剔除 prerelease（GitHub 的 ai release 实际未加 --prerelease，其 prerelease=false，
+ *    仅靠 isPrerelease 剔除会漏掉这类 ai tag）；
  * 2. 剔除 ai tag；
  * 3. tag 解析失败的剔除；
  * 4. base 优先排序取最大：base 高者恒胜，preVer 仅在同 base 内比较。

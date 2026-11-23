@@ -61,10 +61,12 @@ import com.huanchengfly.tieba.post.ui.page.thread.PostCard
 import com.huanchengfly.tieba.post.ui.page.thread.UserNameText
 import com.huanchengfly.tieba.post.ui.utils.bottomBarInsetsPadding
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
+import com.huanchengfly.tieba.post.ui.widgets.compose.BarEdge
 import com.huanchengfly.tieba.post.ui.widgets.compose.BlockTip
 import com.huanchengfly.tieba.post.ui.widgets.compose.BlockableContent
 import com.huanchengfly.tieba.post.ui.widgets.compose.Card
 import com.huanchengfly.tieba.post.ui.widgets.compose.ConfirmDialog
+import com.huanchengfly.tieba.post.ui.widgets.compose.barsAutoHide
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
 import com.huanchengfly.tieba.post.ui.widgets.compose.LoadMoreLayout
 import com.huanchengfly.tieba.post.ui.widgets.compose.LongClickMenu
@@ -325,45 +327,48 @@ internal fun SubPostsContent(
                     Column(
                         modifier = Modifier.background(ExtendedTheme.colors.threadBottomBar)
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Avatar(
-                                data = StringUtil.getAvatarUrl(account.portrait),
-                                size = Sizes.Tiny,
-                                contentDescription = account.name,
-                            )
+                        // 回复栏跟随滑动隐藏；手势热区占位留在外面。
+                        Column(modifier = Modifier.barsAutoHide(BarEdge.Bottom)) {
                             Row(
                                 modifier = Modifier
-                                    .padding(vertical = 8.dp)
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(ExtendedTheme.colors.bottomBarSurface)
-                                    .clickable {
-                                        val fid = forum?.get { id } ?: forumId
-                                        val forumName = forum?.get { name }
-                                        if (!forumName.isNullOrEmpty()) {
-                                            showReplyDialog(
-                                                ReplyArgs(
-                                                    forumId = fid,
-                                                    forumName = forumName,
-                                                    threadId = threadId,
-                                                    postId = postId,
-                                                )
-                                            )
-                                        }
-                                    }
-                                    .padding(8.dp),
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text(
-                                    text = stringResource(id = R.string.tip_reply_thread),
-                                    style = MaterialTheme.typography.caption,
-                                    color = ExtendedTheme.colors.onBottomBarSurface,
+                                Avatar(
+                                    data = StringUtil.getAvatarUrl(account.portrait),
+                                    size = Sizes.Tiny,
+                                    contentDescription = account.name,
                                 )
+                                Row(
+                                    modifier = Modifier
+                                        .padding(vertical = 8.dp)
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(ExtendedTheme.colors.bottomBarSurface)
+                                        .clickable {
+                                            val fid = forum?.get { id } ?: forumId
+                                            val forumName = forum?.get { name }
+                                            if (!forumName.isNullOrEmpty()) {
+                                                showReplyDialog(
+                                                    ReplyArgs(
+                                                        forumId = fid,
+                                                        forumName = forumName,
+                                                        threadId = threadId,
+                                                        postId = postId,
+                                                    )
+                                                )
+                                            }
+                                        }
+                                        .padding(8.dp),
+                                ) {
+                                    Text(
+                                        text = stringResource(id = R.string.tip_reply_thread),
+                                        style = MaterialTheme.typography.caption,
+                                        color = ExtendedTheme.colors.onBottomBarSurface,
+                                    )
+                                }
                             }
                         }
 

@@ -41,7 +41,6 @@ import com.huanchengfly.tieba.post.api.models.protos.ThreadInfo
 import com.huanchengfly.tieba.post.api.models.protos.User
 import com.huanchengfly.tieba.post.api.models.protos.abstractText
 import com.huanchengfly.tieba.post.api.models.protos.frsPage.Classify
-import com.huanchengfly.tieba.post.arch.BaseComposeActivity.Companion.LocalWindowSizeClass
 import com.huanchengfly.tieba.post.arch.ImmutableHolder
 import com.huanchengfly.tieba.post.arch.collectPartialAsState
 import com.huanchengfly.tieba.post.arch.onEvent
@@ -49,7 +48,6 @@ import com.huanchengfly.tieba.post.arch.onGlobalEvent
 import com.huanchengfly.tieba.post.arch.pageViewModel
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.common.theme.compose.pullRefreshIndicator
-import com.huanchengfly.tieba.post.ui.common.windowsizeclass.WindowWidthSizeClass
 import com.huanchengfly.tieba.post.ui.models.ThreadItemData
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
 import com.huanchengfly.tieba.post.ui.page.forum.getSortType
@@ -171,11 +169,6 @@ private fun ThreadList(
     onOriginThreadClicked: (OriginThreadInfo) -> Unit = {},
     onUserClicked: (User) -> Unit = {},
 ) {
-    val windowSizeClass = LocalWindowSizeClass.current
-    val itemFraction = when (windowSizeClass.widthSizeClass) {
-        WindowWidthSizeClass.Expanded -> 0.5f
-        else -> 1f
-    }
     MyLazyColumn(
         state = state,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -221,7 +214,7 @@ private fun ThreadList(
             ) {
                 val (item) = holder
                 Column(
-                    modifier = Modifier.fillMaxWidth(itemFraction)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     if (item.isTop == 1) {
                         val title = item.title.takeUnless { it.isBlank() } ?: item.abstractText
