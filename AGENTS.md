@@ -106,6 +106,7 @@ $env:ANDROID_SDK_ROOT="F:\Android\sdk"
 3. 单列正文用 `Container { }` 包裹即可获得「宽屏居中 + 收窄」；`fluid = true` 表示明确不要限制。
 4. 大屏导航形态由 `MainPage` 统一决定：Compact → 底部导航，Medium → NavigationRail，Expanded → 常驻抽屉（书本姿态折叠屏回落为 Rail）。不要在各页面重复判断。
 5. 横向分栏（列表 + 详情）属于架构级改动，需要单独评审；不要在局部页面临时拼。
+6. **全面屏 / 安全区**：顶栏的 inset 取 `WindowInsets.safeDrawing.only(Top)`（statusBars ∪ displayCutout），底栏取 `bottomBarInsetsHeight()`（navigationBars ∪ safeGestures ∪ displayCutout）；页面根部已统一做横向 `safeDrawing` 避让。不要退回只用 `statusBars`，刘海/挖孔会压住内容。
 
 ---
 
@@ -117,20 +118,26 @@ $env:ANDROID_SDK_ROOT="F:\Android\sdk"
 
 1. **不消费滚动**：`nestedScrollConnection` 的 pre/post 回调一律返回 `Offset.Zero`，只「观察」已消费的位移方向。**禁止**把用户的拖拽增量拿去做栏动画——那会给滚动叠加加速度，手感直接变差。这是本功能的设计红线。
 2. **独立动画**：方向累计超过阈值后，用固定时长 tween 播完收起/展开，与手指位移解耦；松手后仍会滑到底。
-3. **状态在 Activity 级共享**：`LocalBarsAutoHideState` 由 `BaseComposeActivity` 提供，`MyScaffold` 在每个新页面进入时调用 `show()` 复位。
-4. **系统手势热区必须留在 `barsAutoHide` 之外**：底栏的手势 inset 占位（`bottomBarInsetsHeight()` / `bottomBarInsetsPadding()` / `navigationBarsPadding()`）要放在被隐藏内容的**外层**，否则收起后触摸会落到内容上。
-5. 新增底栏时，写法固定为：
+3. **只改位置、不改尺寸**：`barsAutoHide` 报告给父级的布局高度必须恒等于栏的完整高度，只把栏平移出去。高度一旦跟着动画变化，Scaffold 算出的内容内边距每帧都变，列表被反复重新测量——用户感受到的就是「页面突然长高」，滚动会跟着抖。
+4. **栏的背景必须跟着一起位移**：背景画在 `barsAutoHide` 之内（或它内部的节点上），否则栏滑走后背景仍盖着内容，看起来像「收起后留了一条空白」。
+5. **状态在 Activity 级共享**：`LocalBarsAutoHideState` 由 `BaseComposeActivity` 提供，`MyScaffold` 在每个新页面进入时调用 `show()` 复位。
+6. **系统手势热区必须留在 `barsAutoHide` 之外**：底栏的手势 inset 占位（`bottomBarInsetsHeight()` / `bottomBarInsetsPadding()` / `navigationBarsPadding()`）要放在被隐藏内容的**外层**，否则收起后触摸会落到内容上。
+7. 新增底栏时，写法固定为：
 
 ```kotlin
-Column(modifier = Modifier.background(bg)) {          // 背景常驻
-    Column(modifier = Modifier.barsAutoHide(BarEdge.Bottom)) {
+Column {
+    Column(
+        modifier = Modifier
+            .barsAutoHide(BarEdge.Bottom)
+            .background(bg)          // 背景画在栏内，跟栏一起位移
+    ) {
         /* 真正会滑动隐藏的内容 */
     }
-    Spacer(modifier = Modifier.navigationBarsPadding())  // 手势热区，不参与隐藏
+    Spacer(modifier = Modifier.navigationBarsPadding().background(bg))  // 手势热区，不参与隐藏
 }
 ```
 
-6. 用户可在「自定义设置 → 顶栏 / 底栏跟随滑动隐藏」关闭该行为（`AppPreferencesUtils.hideBarsOnScroll`）。关闭后 `onScroll` 直接返回，不做任何动画。
+8. 用户可在「自定义设置 → 顶栏 / 底栏跟随滑动隐藏」关闭该行为（`AppPreferencesUtils.hideBarsOnScroll`）。关闭后 `onScroll` 直接返回，不做任何动画。
 
 ---
 

@@ -1594,11 +1594,14 @@ private fun BottomBar(
     hasAgreed: Boolean = false,
     agreeNum: Long = 0,
 ) {
-    Column(
-        modifier = Modifier.background(ExtendedTheme.colors.threadBottomBar)
-    ) {
+    Column {
         // 回复栏跟随滑动隐藏；下方手势热区占位不参与隐藏。
-        Column(modifier = Modifier.barsAutoHide(BarEdge.Bottom)) {
+        // 背景画在 barsAutoHide 之内，栏位移时背景一起走，才会露出下面的内容。
+        Column(
+            modifier = Modifier
+                .barsAutoHide(BarEdge.Bottom)
+                .background(ExtendedTheme.colors.threadBottomBar)
+        ) {
             Row(
                 modifier = Modifier
                     .height(IntrinsicSize.Min)
@@ -1669,6 +1672,7 @@ private fun BottomBar(
             Spacer(
                 modifier = Modifier
                     .bottomBarInsetsPadding()
+                    .background(ExtendedTheme.colors.threadBottomBar)
             )
         }
     }

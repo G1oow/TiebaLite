@@ -381,12 +381,13 @@ fun BottomNavigation(
     navigationItems: ImmutableList<NavigationItem>,
     themeColors: ExtendedColors = ExtendedTheme.colors
 ) {
-    Column(
-        modifier = Modifier.background(themeColors.bottomBar)
-    ) {
+    Column {
         // 栏体跟随滑动隐藏；系统手势热区占位留在外面，收起后仍保护底部手势区。
+        // 背景必须画在 barsAutoHide 之内：栏只做位移不改尺寸，背景留在外层会盖住滑出来的内容。
         Column(
-            modifier = Modifier.barsAutoHide(BarEdge.Bottom)
+            modifier = Modifier
+                .barsAutoHide(BarEdge.Bottom)
+                .background(themeColors.bottomBar)
         ) {
             BottomNavigationDivider(themeColors)
             BottomNavigation(
@@ -439,7 +440,11 @@ fun BottomNavigation(
                 }
             }
         }
-        Spacer(modifier = Modifier.height(bottomBarInsetsHeight()))
+        Spacer(
+            modifier = Modifier
+                .height(bottomBarInsetsHeight())
+                .background(themeColors.bottomBar)
+        )
     }
 }
 

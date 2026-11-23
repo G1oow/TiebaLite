@@ -19,7 +19,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.shape.CircleShape
@@ -338,7 +340,9 @@ fun TopAppBarContainer(
     content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     val statusBarModifier = if (insets) {
-        Modifier.windowInsetsTopHeight(WindowInsets.statusBars)
+        // safeDrawing 的 Top 侧 = statusBars ∪ displayCutout：
+        // 全面屏的刘海/挖孔不会压住顶栏内容（shortEdges 下系统不替我们让位）。
+        Modifier.windowInsetsTopHeight(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
     } else {
         Modifier
     }

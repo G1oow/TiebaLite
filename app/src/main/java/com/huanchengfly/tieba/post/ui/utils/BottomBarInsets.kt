@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.safeGestures
@@ -31,7 +32,11 @@ private val FallbackGestureHotspotHeight = 28.dp
  */
 @Composable
 fun bottomBarInsetsHeight(): Dp {
-    val insets = WindowInsets.navigationBars.union(WindowInsets.safeGestures)
+    // 并入 displayCutout：横屏或屏下摄像头机型中挖孔可能落在底部/侧边，
+    // 只避让 navigationBars ∪ safeGestures 会让底栏内容被挖孔切掉。
+    val insets = WindowInsets.navigationBars
+        .union(WindowInsets.safeGestures)
+        .union(WindowInsets.displayCutout)
     val density = LocalDensity.current
     val bottomPx = insets.getBottom(density)
     return if (bottomPx > 0) {

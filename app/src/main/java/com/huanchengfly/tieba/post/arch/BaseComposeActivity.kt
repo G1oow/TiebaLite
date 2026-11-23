@@ -5,6 +5,11 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.widget.Toast
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyListState
@@ -98,9 +103,14 @@ abstract class BaseComposeActivity : BaseActivity() {
                     ) {
                         // 嵌套滚动连接挂在整个页面内容之上：滚动事件从内层列表
                         // 向上冒泡到这里，只做方向观察、不消费增量（见 BarsAutoHideState）。
+                        // 横向安全区（横屏刘海/挖孔、三键导航侧栏）：只做水平避让，
+                        // 纵向由各栏自己的 insets 处理，避免重复内缩。
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .windowInsetsPadding(
+                                    WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
+                                )
                                 .nestedScroll(barsAutoHideState.nestedScrollConnection)
                         ) {
                             Content()

@@ -324,11 +324,14 @@ internal fun SubPostsContent(
             },
             bottomBar = {
                 if (account != null && !LocalContext.current.appPreferences.hideReply) {
-                    Column(
-                        modifier = Modifier.background(ExtendedTheme.colors.threadBottomBar)
-                    ) {
+                    Column {
                         // 回复栏跟随滑动隐藏；手势热区占位留在外面。
-                        Column(modifier = Modifier.barsAutoHide(BarEdge.Bottom)) {
+                        // 背景画在 barsAutoHide 之内，栏位移时背景一起走。
+                        Column(
+                            modifier = Modifier
+                                .barsAutoHide(BarEdge.Bottom)
+                                .background(ExtendedTheme.colors.threadBottomBar)
+                        ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -379,6 +382,7 @@ internal fun SubPostsContent(
                             Spacer(
                                 modifier = Modifier
                                     .bottomBarInsetsPadding()
+                                    .background(ExtendedTheme.colors.threadBottomBar)
                             )
                         }
                     }
