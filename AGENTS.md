@@ -58,6 +58,21 @@ $env:ANDROID_SDK_ROOT="F:\Android\sdk"
 - 本机没有 `gradle` 命令、`keytool` 不在 PATH 时，用上面的绝对路径。
 - **验证以实际命令输出为准**：`BUILD SUCCESSFUL` 才算通过；不要用「看起来对」代替编译。
 
+### 2.1 调试热重载（Live Edit）
+
+仓库在 `.idea/other.xml` 里带上了 Compose Live Edit 配置（`LiveEditConfiguration`：`mode=LIVE_EDIT`、
+`leTriggerMode=AUTOMATIC`），Android Studio 打开工程即生效，不需要再手工勾选。
+
+- 部署：用 Android Studio 的 Run / Debug 部署 `debug` 变体。**不要用 `adb install` 验证热重载**——
+  Live Edit 走的是 IDE 与运行中进程的直连通道，手动装包只会看到旧字节码。
+- 前提：`debugImplementation(libs.compose.ui.tooling)`（已在 `app/build.gradle.kts`）、设备 API 30+；
+  `debug` 变体不混淆，可以直接热替换。
+- 用法：改 `@Composable` 代码并保存，改动会自动推送到运行中的进程；改方法签名、改非 Compose 逻辑等
+  场景 IDE 会提示需要重新部署。
+- 它不是验收手段：Live Edit 只加速本地看效果，交付前仍须跑 `:app:compileDebugKotlin`。
+- 改回手动触发：Settings → Build, Execution, Deployment → Live Edit，或把 `.idea/other.xml` 里的
+  `leTriggerMode` 改成 `ON_HOTKEY`（对应动作 `Compose.Live.Edit.Refresh`）。
+
 ---
 
 ## 3. 代码规范
