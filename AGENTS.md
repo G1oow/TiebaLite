@@ -57,6 +57,12 @@ $env:ANDROID_SDK_ROOT="F:\Android\sdk"
 - `local.properties` 需含 `sdk.dir`（已被 `.gitignore` 忽略，不要提交）。
 - 本机没有 `gradle` 命令、`keytool` 不在 PATH 时，用上面的绝对路径。
 - **验证以实际命令输出为准**：`BUILD SUCCESSFUL` 才算通过；不要用「看起来对」代替编译。
+- **Windows 盘符约束（Glide 5 + KSP2）**：`GRADLE_USER_HOME` 必须与工程在同一个盘符，否则
+  `:app:kspDebugKotlin` 直接失败：`IllegalArgumentException: this and base files have different roots`
+  （Glide 的 KSP 处理器读依赖 jar 内的 `GlideIndexer_*` 时计算相对路径；KSP1 在 KSP 2.3.14 已移除，
+  没有退回 KSP1 的开关）。Android Studio 默认用 `C:\Users\<user>\.gradle`，需在
+  Settings → Build, Execution, Deployment → Build Tools → Gradle → **Gradle user home** 改成
+  `F:\Android\gradle-home`（与上面的命令行一致）；或设置用户环境变量 `GRADLE_USER_HOME` 后重启 IDE。
 
 ### 2.1 调试热重载（Live Edit）
 
