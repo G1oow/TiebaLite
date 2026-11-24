@@ -7,6 +7,7 @@ import androidx.compose.material.ContentAlpha
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.darkColors
 import androidx.compose.material.lightColors
+import androidx.compose.material3.MaterialTheme as Material3Theme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
@@ -475,13 +476,25 @@ fun TiebaLiteTheme(
 
     val colors = getColorPalette(isDarkColorPalette, extendedColors)
 
+    // M2 / M3 两层读同一份 ExtendedColors（AGENTS.md §5.2）：存量组件读 M2，新组件读 M3。
+    // ColorScheme 只在配色变化时重建，避免每帧给 M3 消费方一个新实例。
+    val colorScheme = remember(extendedColors, isDarkColorPalette) {
+        material3ColorScheme(extendedColors, isDarkColorPalette)
+    }
+
     CompositionLocalProvider(LocalExtendedColors provides extendedColors) {
         MaterialTheme(
             colors = colors,
             typography = Typography,
             shapes = Shapes,
-            content = content
-        )
+        ) {
+            Material3Theme(
+                colorScheme = colorScheme,
+                typography = Material3Typography,
+                shapes = Material3Shapes,
+                content = content
+            )
+        }
     }
 }
 
