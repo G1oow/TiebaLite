@@ -76,8 +76,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
@@ -174,6 +180,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlin.concurrent.thread
 import kotlin.math.max
+import kotlin.math.floor
 
 private fun getDescText(
     time: Long?,
@@ -1327,11 +1334,10 @@ fun ThreadPage(
                                                         )
                                                     }
 
-                                                VerticalDivider(
+                                                PixelSnappedDivider(
                                                     modifier = Modifier
                                                         .padding(horizontal = 16.dp)
-                                                        .padding(bottom = 8.dp),
-                                                    thickness = 2.dp
+                                                        .padding(bottom = 8.dp)
                                                 )
                                             }
                                         }
@@ -2197,4 +2203,32 @@ private fun ThreadMenu(
         // 弹层底部避让手势热区：内容整体抬出手势热区，防止点击穿透
         Spacer(modifier = Modifier.bottomBarInsetsPadding())
     }
+}
+
+/**
+ * 与 `VerticalDivider(thickness = 2.dp)` **同位置、同尺寸**的横线，只把绘制吸附到整物理像素。
+ *
+ * 2.dp 在 420dpi 上是 5.25px：直接铺底色时上下边缘落在小数像素上，列表滚动时每帧的小数
+ * 部分都在变，抗锯齿覆盖率随之变化 —— 看起来就是这条线自己在抖 / 闪 1-2px。
+ * 这里高度取整到 5px，并把绘制起点吸附到窗口坐标的整像素边界，位置与尺寸都不变。
+ */
+@Composable
+private fun PixelSnappedDivider(modifier: Modifier = Modifier) {
+    val dividerColor = ExtendedTheme.colors.divider
+    val drawHeightPx = with(LocalDensity.current) { floor(2.dp.toPx()).coerceAtLeast(1f) }
+    var yInWindow = 0f
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(2.dp)
+            .onGloballyPositioned { yInWindow = it.positionInWindow().y }
+            .drawBehind {
+                val snap = yInWindow - floor(yInWindow)
+                drawRect(
+                    color = dividerColor,
+                    topLeft = Offset(0f, -snap),
+                    size = Size(size.width, drawHeightPx),
+                )
+            }
+    )
 }

@@ -129,6 +129,16 @@ $env:ANDROID_SDK_ROOT="F:\Android\sdk"
 - 新增全局事件加到 `GlobalEvent`；页面用 `onGlobalEvent<T> { }` 消费（该实现已保证只有一个 collector，不要改回 `DisposableEffect`）。
 - 持久化设置项加到 `AppPreferencesUtils`（`DataStoreDelegates`），键名用 snake_case 字符串常量；页面侧用 `rememberPreferenceAsState` 或 `SwitchPref(key = "...")` 读取，**键名必须与属性名一致**（`DataStoreDelegates` 默认用属性名做 key）。
 
+### 3.4 改前端先算联动
+
+**修改前端时，需要多思考、多注意各组件、各元素之间的联动效果。** 本仓库最容易漏的几处联动：
+
+- 栏是 overlay：任何 `padding` / `contentPadding` 改动都会同时影响列表避让、吸顶条落点、下拉指示器与页面浮层（提示 / 浮窗）的定位。
+- 动画值（`hiddenFraction` 等）只能进绘制层；一旦进布局（`padding` / `height`），内容就会跟着栏一起动。
+- 吸顶元素与它前后 item 的边界、宽屏 `Container` 的收窄宽度是连着的，别只量一个位置。
+- 复用组件（`FloatingBottomBar` / `MyLazyColumn` / `Toolbar` / `Dividers` 等）改一处等于改所有调用方，先列调用点再动手。
+- 改动前先在设备上确认「原本是什么样」，改完用同一手法复测**同一批节点**，不要只盯着改到的那一个元素。
+
 ---
 
 ## 4. 界面自适应（响应式）规范
@@ -303,5 +313,6 @@ git tag v4.0.64 && git push origin v4.0.64
 - [ ] 栏隐藏改动未消费滚动增量，手势热区仍在隐藏范围之外
 - [ ] UI 改动：新组件用 M3，且符合第 5 节的迁移方向（未新增 M2 组件、未混用两套 MaterialTheme）
 - [ ] 栏改动：顶栏/底栏是 overlay，隐藏时整块滑出、不留空白条；底栏为胶囊式悬浮
+- [ ] UI 改动：已核对联动（栏占位 / 吸顶条与前后 item / 动画值只进绘制层 / 复用组件的全部调用点）
 - [ ] `git status` 中无意外文件（`local.properties`、构建产物、`.kotlin/sessions/` 等）
 - [ ] 修复的 bug 已在 `debuglog.md` 追加一条（现象 / 根因 / 修复 / 验证证据），状态与提交对应
