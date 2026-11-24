@@ -88,6 +88,16 @@ TiebaLite is an **unofficial** Baidu Tieba Android client, written in Kotlin wit
 
 > **⚠️ Notice:** This software and its source code are for learning and communication only. Commercial use is strictly prohibited. Not affiliated with Baidu, Inc.
 
+## 🆕 v5.0.0 — Floating Overlay Bars · Material 3 Foundation
+
+> ### 🎈 Bars float above the content · 🎨 Same look, Material 3 underneath
+> **Overlay bars**: the top and bottom bars no longer take layout space — content runs full-screen underneath them and reserves their height only as padding, so scrolling content reaches into the bar area. When the bars hide they slide out as one block, leaving no empty strip and no colour band behind.
+> **Floating capsule**: every bottom bar is now one capsule — M3 `Surface`, 28dp corners, 16dp side margins, and only the gesture inset + 6dp below it.
+> **Thread menu**: the in-thread menu is an M3 `ModalBottomSheet`; it isn't composed while closed, so no leftover card sits above the capsule.
+> **Material 3 foundation**: `TiebaLiteTheme` now provides the M2 theme *and* an M3 `ColorScheme` / `Typography` / `Shapes` derived from the same palette, so new M3 components no longer fall back to the Material 3 baseline purple. Type sizes and corner radii carry over item by item, so migrating a screen won't shift its look.
+> **Settings**: settings pages no longer shrink the whole page; items can scroll under the top bar.
+> **Toolchain**: Gradle 9.9.2 / AGP 9.5.2 / Kotlin 2.4.21 / Compose BOM 2026.11.01, the player migrated to Media3, SweetDependency removed.
+
 ## 🆕 v4.0.65 — No More Growing Pages · Full-Screen Black Bar Fix
 
 > ### 📐 The page no longer "grows" while scrolling · 🖥️ Notch and tall screens filled
