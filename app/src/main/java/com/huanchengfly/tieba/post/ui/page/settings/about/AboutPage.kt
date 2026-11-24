@@ -100,10 +100,13 @@ fun AboutPage(
                 }
             )
         }
-    ) {
+    ) { paddingValues ->
+        // 栏是悬浮 overlay、正文铺满整屏（AGENTS.md §5.3），这里必须自己退让：
+        // 否则顶部 32dp 留白 + 88dp 应用图标会被不透明顶栏切掉上半截。
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(paddingValues)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
