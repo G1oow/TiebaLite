@@ -136,13 +136,13 @@ M2 存量热点（按文件数，`import` 计数）：
 
 - `:app:compileDebugKotlin` → `BUILD SUCCESSFUL`；`:app:assembleDebug` → `BUILD SUCCESSFUL`。
 - `:app:testDebugUnitTest` → 48 个用例：`SearchThreadStateRegressionTest` 5/5、`UpdateOriginTest` 11/11 通过；`VersionCompatTest` 31 个中 2 个失败（`compare("4.0", "4.0.0")` 期望 `Equal` 实得 `Incompatible`）。被测文件与依赖配置与本分支改动无交集（`git diff` 为空），属既有失败。
-- `:app:connectedDebugAndroidTest` → `BUILD SUCCESSFUL`（Pixel_7(AVD)）：`UiContractsTest` 4 个用例全部通过（栏动画期间列表项尺寸 / 视口 / contentPadding 不变且不消费位移、事件回调替换后仍单订阅、刷新用最新回调并保留指示器、Snackbar 上滑关闭后下一条不被移走）。
+- `:app:connectedDebugAndroidTest` → `BUILD SUCCESSFUL`（Pixel_7(AVD)）：6 个用例全部通过——`UiContractsTest` 4 个（栏动画期间列表项尺寸 / 视口 / contentPadding 不变且不消费位移、事件回调替换后仍单订阅、刷新用最新回调并保留指示器、Snackbar 上滑关闭后下一条不被移走）+ `PrefsDraftTest` 1 个（设置项「修改 → 取消 → 重开」草稿不残留）+ 内置 1 个。
 - 栏与吸顶：帖子页「只看楼主」粘顶条，顶栏收起 `[902,46][1038,172]`、展开 `[902,210][1038,319]`，差值 164px = 顶栏可见高度；吧页页签展开 `y249` → 收起 `y102` → 回滑 `y249`；浏览记录页「今天早些时候」展开 `704` → 收起 `431`。
 - 首页第 1 项：「发现更多」`[189,269][333,321]` 与网格首项「经过贴吧」`[84,422][208,467]` 间隔 101px，不再含多算的 210px 栏高；吧页页签底部到首项顶部 240px → 61px。
 - 下拉刷新提示：首页 / 吧页下拉时提示 `[476,136][605,182]`（栏之上），顶栏与内容位置不动。
 - 浅色（深海蓝）/ 纯黑两套主题：首页、我、设置、浏览记录、主题选择五个页面语义树 bounds 一致（如「请先登录」`[42,285][849,346]`、页签 `[340,321]`），无整页塌陷。
 - 旋转（横屏 2400x1080）：设置页标题 `[1215,110][1321,185]`、列表项完整；首页走 NavigationRail（`首页 / 动态 / 消息 / 我` 在 `x≈220..399`），符合 AGENTS.md §4-4。
-- 弹窗草稿：「自动签到时间」`09:00` → 滚到 `11` → 取消 → 重新打开仍居中在 `09`（`ui-timepick2/aftercancel/timepick3`）；走「确定」则写回 `11:00`，无回归。
+- 弹窗草稿：「自动签到时间」`09:00` → 滚到 `11` → 取消 → 重新打开仍居中在 `09`（`ui-timepick2/aftercancel/timepick3`）；走「确定」则写回 `11:00`，无回归。`EditTextPref` 同一改法由 `PrefsDraftTest` 覆盖：把该文件回退到修复前实现时该用例失败（`ComposeTimeoutException` @ `PrefsDraftTest.kt:84`），恢复修复版后通过。
 - 浏览记录空态：无数据时居中显示「暂无浏览记录 / 看过的贴子和进过的吧会出现在这里」，不再白屏。
 
 ---
