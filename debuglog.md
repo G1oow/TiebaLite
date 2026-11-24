@@ -327,6 +327,9 @@
 | 文件 | 改动 |
 |---|---|
 | `ui/page/thread/ThreadPage.kt` | 吸顶页签 `Row` 的 `padding(top = stickyHeaderTopInset())` 改为 `padding(top = topBarInsetsHeight())`（`statusBars ∪ displayCutout`，常量，与栏收起比例无关）；`import` 同步替换；注释写明为何不能跟随 `hiddenFraction`，以及「顶栏展开时这条页签藏在栏后面」的既定代价（方案 B） |
+| `ui/page/subposts/SubPostsPage.kt`、`ui/page/search/user/SearchUserPage.kt`、`ui/page/search/forum/SearchForumPage.kt`、`ui/page/forum/searchpost/ForumSearchPostPage.kt`、`ui/page/history/list/HistoryListPage.kt` | 同款吸顶页签（共 7 处）按同一方案 B 改为 `topBarInsetsHeight()`，`import` 同步替换 |
+| `ui/page/forum/ForumPage.kt` | 页头跟随栏改成**绘制位移**：`followingPadding.top` 固定为栏的完整高度 `LocalTopBarHeight`，再用 `graphicsLayer { translationY = -((barHeight - statusBar) * hiddenFraction) }` 跟随。视觉与原来一致（栏展开时页头贴栏下沿、收起后贴状态栏下），但布局高度恒定 |
+| `ui/widgets/compose/BarsAutoHide.kt` | 删掉 `stickyHeaderTopInset()`（全部调用点已改完，留着就是「拿动画值算布局高度」的样板）；`hiddenFraction` 的 KDoc 改为「只允许在绘制层读」 |
 
 ### 验证
 
@@ -336,14 +339,16 @@
 | 修前（按住下滑 60px） | 同屏节点统一 **+187px** = 滚动 ≈40 + 凭空 **147px**（147px = 56dp 标题行） |
 | 修后（同一手法） | 「回复 55」+39px、「全部」+44px = 手指 60px − touch slop，**无额外位移** |
 | 吸顶页签位置 | 栏收起 / 展开下均为 `y=84`（状态栏 63 + 8dp 21），不随栏动画变 |
+| 修后复测（本轮这批改动装上后，帖子页同手法） | 「回复 161」+39px，同屏其他节点同样 **+39px**，栏显隐不再产生 147px 位移 |
+| 吧页（`ForumPage` 改绘制位移后） | 进页面时页头「图拉丁吧」`y=252` = 栏底 210 + 16dp(42)，与改前一致；上滑 300px 后页签「最新」-391px（滚动 + 页头折叠），无崩溃 |
 
 ### 涉及文件
 
-`ThreadPage.kt`。
+`ThreadPage.kt`、`SubPostsPage.kt`、`SearchUserPage.kt`、`SearchForumPage.kt`、`ForumSearchPostPage.kt`、`HistoryListPage.kt`、`ForumPage.kt`、`BarsAutoHide.kt`。
 
 ### 遗留
 
-同款写法仍在 `SubPostsPage`、`SearchUserPage`、`SearchForumPage`、`ForumSearchPostPage`、`HistoryListPage`（吸顶页签）与 `ForumPage`（页头 `followingPadding`）——同样把栏动画兑成布局高度，本次未改，待定是否一并按方案 B 处理。
+无。同类写法（含 `stickyHeaderTopInset()` 本身）已全部清除；吧页「页头跟随栏」是既定设计，仍保留跟随，只把实现从布局高度换成绘制位移。
 
 ---
 

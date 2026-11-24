@@ -30,7 +30,7 @@ import com.huanchengfly.tieba.post.arch.pageViewModel
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
 import com.huanchengfly.tieba.post.ui.page.search.SearchUiEvent
-import com.huanchengfly.tieba.post.ui.widgets.compose.stickyHeaderTopInset
+import com.huanchengfly.tieba.post.ui.utils.topBarInsetsHeight
 import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.Chip
@@ -125,7 +125,7 @@ fun SearchUserPage(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(ExtendedTheme.colors.background)
-                                .padding(top = stickyHeaderTopInset())
+                                .padding(top = topBarInsetsHeight())
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Chip(
@@ -154,7 +154,7 @@ fun SearchUserPage(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(ExtendedTheme.colors.background)
-                                .padding(top = stickyHeaderTopInset())
+                                .padding(top = topBarInsetsHeight())
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Chip(

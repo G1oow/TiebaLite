@@ -66,6 +66,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -106,14 +107,16 @@ import com.huanchengfly.tieba.post.ui.page.forum.threadlist.ForumThreadListUiEve
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.AvatarPlaceholder
 import com.huanchengfly.tieba.post.ui.widgets.compose.BackNavigationIcon
+import com.huanchengfly.tieba.post.ui.utils.topBarInsetsHeight
 import com.huanchengfly.tieba.post.ui.widgets.compose.Button
 import com.huanchengfly.tieba.post.ui.widgets.compose.ClickMenu
 import com.huanchengfly.tieba.post.ui.widgets.compose.ConfirmDialog
 import com.huanchengfly.tieba.post.ui.widgets.compose.FeedCardPlaceholder
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
+import com.huanchengfly.tieba.post.ui.widgets.compose.LocalBarsAutoHideState
+import com.huanchengfly.tieba.post.ui.widgets.compose.LocalTopBarHeight
 import com.huanchengfly.tieba.post.ui.widgets.compose.MenuScope
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
-import com.huanchengfly.tieba.post.ui.widgets.compose.stickyHeaderTopInset
 
 import com.huanchengfly.tieba.post.ui.widgets.compose.PagerTabIndicator
 import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
@@ -697,18 +700,27 @@ fun ForumPage(
                         }
                     }
 
-                    // 顶部留白跟随顶栏：顶栏收起时整块页头（含「最新 / 精华」）随之上移贴住状态栏，
-                    // 顶栏回来时再被顶下去——与 stickyHeader 用同一份 inset 规则。
+                    // 页头跟随顶栏：留白按栏的**完整高度**固定，栏收起时把整块 body 用绘制位移上移。
+                    // 视觉与「留白跟着 hiddenFraction 缩」完全一致（栏展开时 body 从栏下沿开始，
+                    // 收起后贴到状态栏下），但布局高度恒定——栏的 220ms 动画因此不再让列表每帧重新
+                    // 测量、把内容推着走（AGENTS.md §6.3：只改位置，不改尺寸）。
+                    val barsAutoHideState = LocalBarsAutoHideState.current
+                    val barHeight = LocalTopBarHeight.current
+                    val statusBarInset = topBarInsetsHeight()
                     val layoutDirection = LocalLayoutDirection.current
                     val followingPadding = PaddingValues(
                         start = contentPadding.calculateStartPadding(layoutDirection),
-                        top = stickyHeaderTopInset(),
+                        top = barHeight,
                         end = contentPadding.calculateEndPadding(layoutDirection),
                         bottom = contentPadding.calculateBottomPadding(),
                     )
                     Box(
                         modifier = Modifier
                             .padding(followingPadding)
+                            .graphicsLayer {
+                                val followable = (barHeight - statusBarInset).coerceAtLeast(0.dp)
+                                translationY = -(followable * (barsAutoHideState?.hiddenFraction ?: 0f)).toPx()
+                            }
                             .nestedScroll(headerNestedScrollConnection)
                     ) {
                         Column {
