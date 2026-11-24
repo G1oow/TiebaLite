@@ -62,8 +62,10 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.ErrorScreen
 import com.huanchengfly.tieba.post.ui.widgets.compose.FeedCard
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
 import com.huanchengfly.tieba.post.ui.widgets.compose.LoadMoreLayout
+import com.huanchengfly.tieba.post.ui.widgets.compose.LocalBarsContentPadding
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
 import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
+import com.huanchengfly.tieba.post.ui.widgets.compose.RefreshIndicatorContainerSize
 import com.huanchengfly.tieba.post.ui.widgets.compose.VerticalDivider
 import com.huanchengfly.tieba.post.ui.widgets.compose.states.StateScreen
 import kotlinx.collections.immutable.ImmutableList
@@ -229,11 +231,20 @@ fun PersonalizedPage(
     }
 }
 
+/**
+ * 刷新结果提示：排在顶栏下沿、下拉指示器槽的下面。
+ *
+ * 栏是悬浮 overlay、正文铺满整屏（AGENTS.md §5.3），写死固定偏移会落进顶栏
+ * （状态栏底色带 + 标题行 + 次级槽）底下被整块盖住。偏移取 [LocalBarsContentPadding]
+ * 的 top——即 MyScaffold 实测的顶栏完整高度，与下拉刷新指示器同一套换算；
+ * 再加一个指示器容器的高度，二次下拉时圆形指示器不会压在这条提示上。
+ */
 @Composable
 private fun BoxScope.RefreshTip(refreshCount: Int) {
+    val barsTopPadding = LocalBarsContentPadding.current.calculateTopPadding()
     Box(
         modifier = Modifier
-            .padding(top = 72.dp)
+            .padding(top = barsTopPadding + RefreshIndicatorContainerSize + RefreshTipTopGap)
             .clip(RoundedCornerShape(100))
             .background(
                 color = ExtendedTheme.colors.primary,
@@ -248,6 +259,9 @@ private fun BoxScope.RefreshTip(refreshCount: Int) {
         )
     }
 }
+
+/** 提示与栏下沿（含指示器槽）之间的间距：贴着读起来像栏的一部分。 */
+private val RefreshTipTopGap = 12.dp
 
 @Composable
 private fun FeedList(
