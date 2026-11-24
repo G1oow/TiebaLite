@@ -1,9 +1,10 @@
 package com.huanchengfly.tieba.post.ui.page.main.notifications
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.Scaffold
+import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import androidx.compose.material.Tab
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
@@ -14,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.huanchengfly.tieba.post.R
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
@@ -95,7 +97,7 @@ fun NotificationsPage(
         ) { paddingValues ->
             LazyLoadHorizontalPager(
                 state = pagerState,
-                contentPadding = paddingValues,
+                contentPadding = PaddingValues(0.dp),
                 key = { pages[it].first },
                 modifier = Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.Top,
@@ -128,7 +130,7 @@ fun NotificationsPage(
         initialPage = initialTab,
     ) { pages.size }
     val coroutineScope = rememberCoroutineScope()
-    Scaffold(
+    MyScaffold(
         backgroundColor = Color.Transparent,
         topBar = {
             Toolbar(
@@ -173,7 +175,7 @@ fun NotificationsPage(
     ) { paddingValues ->
         LazyLoadHorizontalPager(
             state = pagerState,
-            contentPadding = paddingValues,
+            contentPadding = PaddingValues(0.dp),
             key = { pages[it].first },
             modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.Top,

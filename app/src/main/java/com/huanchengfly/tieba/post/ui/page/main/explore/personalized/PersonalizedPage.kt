@@ -290,6 +290,8 @@ private fun FeedList(
     val refreshPosition = refreshPositionProvider()
     val hiddenThreadIds = hiddenThreadIdsProvider()
 
+    // 避让栏：外层（主界面悬浮胶囊底栏）+ 本页顶栏由 MyScaffold 累加后经
+    // LocalBarsContentPadding 下传，MyLazyColumn 已默认合并，这里不要再手动叠加。
     MyLazyColumn(
         state = state,
         horizontalAlignment = Alignment.CenterHorizontally,

@@ -7,48 +7,52 @@ import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.navigation.NavHostController
+import com.huanchengfly.tieba.post.arch.BaseComposeActivity.Companion.LocalWindowSizeClass
+import com.huanchengfly.tieba.post.arch.collectPartialAsState
+import com.huanchengfly.tieba.post.arch.emitGlobalEvent
+import com.huanchengfly.tieba.post.arch.GlobalEvent
+import com.huanchengfly.tieba.post.arch.pageViewModel
 import com.huanchengfly.tieba.post.LocalDevicePosture
 import com.huanchengfly.tieba.post.LocalNotificationCountFlow
 import com.huanchengfly.tieba.post.R
-import com.huanchengfly.tieba.post.arch.BaseComposeActivity.Companion.LocalWindowSizeClass
-import com.huanchengfly.tieba.post.arch.GlobalEvent
-import com.huanchengfly.tieba.post.arch.collectPartialAsState
-import com.huanchengfly.tieba.post.arch.emitGlobalEvent
-import com.huanchengfly.tieba.post.arch.pageViewModel
 import com.huanchengfly.tieba.post.rememberPreferenceAsState
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.common.windowsizeclass.WindowHeightSizeClass
 import com.huanchengfly.tieba.post.ui.common.windowsizeclass.WindowWidthSizeClass
-import com.huanchengfly.tieba.post.ui.page.ProvideNavigator
 import com.huanchengfly.tieba.post.ui.page.main.explore.ExplorePage
 import com.huanchengfly.tieba.post.ui.page.main.home.HomePage
 import com.huanchengfly.tieba.post.ui.page.main.notifications.NotificationsPage
 import com.huanchengfly.tieba.post.ui.page.main.user.UserPage
+import com.huanchengfly.tieba.post.ui.page.ProvideNavigator
 import com.huanchengfly.tieba.post.ui.utils.DevicePosture
 import com.huanchengfly.tieba.post.ui.utils.MainNavigationContentPosition
 import com.huanchengfly.tieba.post.ui.utils.MainNavigationType
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoadHorizontalPager
 import com.huanchengfly.tieba.post.ui.widgets.compose.LocalBarsAutoHideState
+import com.huanchengfly.tieba.post.ui.widgets.compose.LocalBarsContentPadding
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import com.huanchengfly.tieba.post.utils.appPreferences
-import androidx.navigation.NavHostController
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
@@ -284,15 +288,19 @@ fun MainPage(
                     }
                 }
             ) { paddingValues ->
-                LazyLoadHorizontalPager(
-                    contentPadding = paddingValues,
-                    state = pagerState,
-                    key = { navigationItems[it].id },
-                    modifier = Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.Top,
-                    userScrollEnabled = false
-                ) {
-                    navigationItems[it].content()
+                // 底栏是独立浮层，内容铺满整屏；把胶囊占位高度作为「外层栏高」下传，
+                // 由各页面自己的 MyScaffold 与页内栏高相加后交给列表当 contentPadding。
+                CompositionLocalProvider(LocalBarsContentPadding provides paddingValues) {
+                    LazyLoadHorizontalPager(
+                        contentPadding = PaddingValues(0.dp),
+                        state = pagerState,
+                        key = { navigationItems[it].id },
+                        modifier = Modifier.fillMaxSize(),
+                        verticalAlignment = Alignment.Top,
+                        userScrollEnabled = false
+                    ) {
+                        navigationItems[it].content()
+                    }
                 }
             }
         }

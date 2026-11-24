@@ -61,16 +61,16 @@ import com.huanchengfly.tieba.post.ui.page.thread.PostCard
 import com.huanchengfly.tieba.post.ui.page.thread.UserNameText
 import com.huanchengfly.tieba.post.ui.utils.bottomBarInsetsPadding
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
-import com.huanchengfly.tieba.post.ui.widgets.compose.BarEdge
 import com.huanchengfly.tieba.post.ui.widgets.compose.BlockTip
 import com.huanchengfly.tieba.post.ui.widgets.compose.BlockableContent
 import com.huanchengfly.tieba.post.ui.widgets.compose.Card
 import com.huanchengfly.tieba.post.ui.widgets.compose.ConfirmDialog
-import com.huanchengfly.tieba.post.ui.widgets.compose.barsAutoHide
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
 import com.huanchengfly.tieba.post.ui.widgets.compose.LoadMoreLayout
 import com.huanchengfly.tieba.post.ui.widgets.compose.LongClickMenu
+import com.huanchengfly.tieba.post.ui.widgets.compose.FloatingBottomBar
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
+import com.huanchengfly.tieba.post.ui.widgets.compose.floatingBarColor
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
 import com.huanchengfly.tieba.post.ui.widgets.compose.TitleCentredToolbar
@@ -324,21 +324,15 @@ internal fun SubPostsContent(
             },
             bottomBar = {
                 if (account != null && !LocalContext.current.appPreferences.hideReply) {
-                    Column {
-                        // 回复栏跟随滑动隐藏；手势热区占位留在外面。
-                        // 背景画在 barsAutoHide 之内，栏位移时背景一起走。
-                        Column(
+                    // 胶囊悬浮底栏：与主界面 / 帖子页同一视觉族；手势区包含在滑出块内。
+                    FloatingBottomBar(color = floatingBarColor(ExtendedTheme.colors.threadBottomBar)) {
+                        Row(
                             modifier = Modifier
-                                .barsAutoHide(BarEdge.Bottom)
-                                .background(ExtendedTheme.colors.threadBottomBar)
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
                                 Avatar(
                                     data = StringUtil.getAvatarUrl(account.portrait),
                                     size = Sizes.Tiny,
@@ -371,26 +365,14 @@ internal fun SubPostsContent(
                                         style = MaterialTheme.typography.caption,
                                         color = ExtendedTheme.colors.onBottomBarSurface,
                                     )
-                                }
                             }
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .requiredHeightIn(min = if (LocalContext.current.appPreferences.liftUpBottomBar) 16.dp else 0.dp)
-                        ) {
-                            Spacer(
-                                modifier = Modifier
-                                    .bottomBarInsetsPadding()
-                                    .background(ExtendedTheme.colors.threadBottomBar)
-                            )
                         }
                     }
                 }
             }
         ) { paddingValues ->
             LoadMoreLayout(
-                modifier = Modifier.padding(paddingValues),
+                modifier = Modifier,
                 isLoading = isLoading,
                 onLoadMore = {
                     viewModel.send(

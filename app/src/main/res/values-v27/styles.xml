@@ -11,6 +11,10 @@
         <item name="android:windowLightNavigationBar">false</item>
         <item name="android:navigationBarColor">?colorNavBar</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <!-- 全面屏：允许窗口铺进刘海/挖孔区（内容由 safeDrawing inset 避让）。
+             该属性必须与 values/ 下的定义保持一致：本文件会在 API 27+ 覆盖 values/，
+             漏写就会退回 default 模式，横屏 / 挖孔机型会被系统 letterbox 出黑边。 -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 
     <style name="Base.AppTheme" parent="Theme.MaterialComponents.Light.NoActionBar">
@@ -23,6 +27,7 @@
         <item name="android:windowLightNavigationBar">true</item>
         <item name="android:navigationBarColor">?colorNavBar</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 
     <style name="AppTheme.PhotoView" parent="Theme.MaterialComponents.Light.NoActionBar">

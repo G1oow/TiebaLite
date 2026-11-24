@@ -267,7 +267,7 @@ fun SearchPage(
     ) { paddingValues ->
         Box(modifier = Modifier
             .fillMaxSize()
-            .padding(paddingValues)) {
+        ) {
             if (!isKeywordEmpty) {
                 ProvideNavigator(navigator = navigator) {
                     LazyLoadHorizontalPager(
@@ -327,7 +327,7 @@ private fun SearchSuggestionList(
             key = { it }
         ) {
             Container(
-                modifier = Modifier.animateItemPlacement()
+                modifier = Modifier.animateItem()
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

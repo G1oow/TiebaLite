@@ -9,12 +9,9 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
@@ -23,16 +20,6 @@ import com.huanchengfly.tieba.post.rememberPreferenceAsState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.abs
-import kotlin.math.roundToInt
-
-/** 顶栏 / 底栏所在的一侧。 */
-enum class BarEdge {
-    /** 顶栏：向上滑出。 */
-    Top,
-
-    /** 底栏：向下滑出。 */
-    Bottom,
-}
 
 /**
  * 顶栏 / 底栏「跟随滑动自动隐藏」的共享状态。
@@ -149,28 +136,3 @@ fun rememberBarsAutoHideState(): BarsAutoHideState {
     }
 }
 
-/**
- * 让栏跟随滚动隐藏/展示。
- *
- * **只做位移，不改布局尺寸**：栏在布局里始终占着原本的高度，Scaffold 据此算出的内容
- * 内边距因此恒定——滚动过程中内容不会被重新测量，也不会「长高」。又因为 Scaffold 的
- * 内容区本来就铺满整块、靠内边距避让，栏滑走后露出来的正是它下面被挡住的内容。
- *
- * - [BarEdge.Top]：向上滑出；
- * - [BarEdge.Bottom]：向下滑出。
- *
- * 注意：栏的背景要画在施加本 Modifier 的节点上（或它内部），否则收起后背景仍会盖住
- * 内容；底栏的系统手势 inset 占位要留在本 Modifier **之外**，否则手势热区会跟着滑走。
- */
-fun Modifier.barsAutoHide(edge: BarEdge): Modifier = composed {
-    val state = LocalBarsAutoHideState.current ?: return@composed this
-    this.layout { measurable, constraints ->
-        val placeable = measurable.measure(constraints)
-        // 布局尺寸与栏的完整高度保持一致：这个高度决定内容内边距，
-        // 一旦随动画变化，内容就会逐帧重排，也就是用户感觉到的「页面突然长高」。
-        layout(placeable.width, placeable.height) {
-            val hidden = (placeable.height * state.hiddenFraction).roundToInt()
-            placeable.place(0, if (edge == BarEdge.Top) -hidden else hidden)
-        }
-    }
-}
