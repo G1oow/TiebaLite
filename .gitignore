@@ -39,10 +39,9 @@ app/lint.xml
 # Android Studio captures folder
 captures/
 
-# IntelliJ（.idea/ 整体忽略，只放行随仓库共享的 Live Edit 配置）
+# IntelliJ（.idea/ 整体忽略；Live Edit 属 IDE 级设置，无法随仓库预置，见 AGENTS.md 2.1）
 *.iml
 .idea/*
-!.idea/other.xml
 
 # Keystore files
 # Uncomment the following line if you do not want to check your keystore files in.
