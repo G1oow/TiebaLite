@@ -28,7 +28,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -36,7 +35,6 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
@@ -70,7 +68,6 @@ class PersonalizedViewModel @Inject constructor() :
                 intentFlow.filterIsInstance<PersonalizedUiIntent.LoadMore>().flatMapConcat { it.producePartialChange() },
                 intentFlow.filterIsInstance<PersonalizedUiIntent.Dislike>().flatMapConcat { it.producePartialChange() },
                 intentFlow.filterIsInstance<PersonalizedUiIntent.Agree>().flatMapConcat { it.producePartialChange() },
-                intentFlow.filterIsInstance<PersonalizedUiIntent.SetFollowMode>().flatMapConcat { it.producePartialChange() },
             )
 
         /** 「只看已关注」模式下按 forumId 过滤；空列表（未登录/加载失败）不过滤，避免整页空白 */
@@ -129,40 +126,6 @@ class PersonalizedViewModel @Inject constructor() :
                     )
                 }
                 .onStart { emit(PersonalizedPartialChange.LoadMore.Start) }
-                .catch { emit(PersonalizedPartialChange.LoadMore.Failure(currentPage = page, error = it)) }
-
-        private fun PersonalizedUiIntent.SetFollowMode.producePartialChange(): Flow<PersonalizedPartialChange.SetFollowMode> =
-            flow<PersonalizedPartialChange.SetFollowMode> {
-                App.INSTANCE.appPreferences.personalizedFollowedOnly = enabled
-                // 切换模式即重拉首页：保持数据与当前模式一致（单次请求，避免重复调用）
-                emit(PersonalizedPartialChange.SetFollowMode.Start(enabled))
-                try {
-                    val response = PersonalizedRepository.personalizedFlow(1, 1).first()
-                    val threadPersonalizedData = response.data_?.thread_personalized ?: emptyList()
-                    val data = response.toData()
-                        .filter {
-                            !App.INSTANCE.appPreferences.blockVideo || it.get { videoInfo } == null
-                        }
-                        .filter { it.get { ala_info } == null }
-                        .let {
-                            if (App.INSTANCE.appPreferences.personalizedFollowedOnly) filterFollowedOnly(it) else it
-                        }
-                    emit(
-                        PersonalizedPartialChange.SetFollowMode.Success(
-                            data = data.map { thread ->
-                                val threadPersonalized =
-                                    threadPersonalizedData.firstOrNull { it.tid == thread.get { id } }
-                                        ?.wrapImmutable()
-                                ThreadItemData(thread = thread, personalized = threadPersonalized)
-                            }.toImmutableList(),
-                            enabled = enabled
-                        )
-                    )
-                } catch (e: Exception) {
-                    emit(PersonalizedPartialChange.SetFollowMode.Failure(e))
-                }
-            }.flowOn(Dispatchers.IO)
-
         private fun PersonalizedUiIntent.Dislike.producePartialChange(): Flow<PersonalizedPartialChange.Dislike> =
             TiebaApi.getInstance().submitDislikeFlow(
                 DislikeBean(
@@ -200,10 +163,6 @@ sealed interface PersonalizedUiIntent : UiIntent {
     data object Refresh : PersonalizedUiIntent
 
     data class LoadMore(val page: Int) : PersonalizedUiIntent
-
-    /** 切换「只看已关注吧」模式并重拉首页 */
-    data class SetFollowMode(val enabled: Boolean) : PersonalizedUiIntent
-
     data class Agree(
         val threadId: Long,
         val postId: Long,
@@ -326,40 +285,6 @@ sealed interface PersonalizedPartialChange : PartialChange<PersonalizedUiState> 
             val error: Throwable,
         ) : Dislike()
     }
-
-    sealed class SetFollowMode private constructor() : PersonalizedPartialChange {
-        override fun reduce(oldState: PersonalizedUiState): PersonalizedUiState =
-            when (this) {
-                is Start -> oldState.copy(
-                    isRefreshing = true,
-                    followedOnly = enabled,
-                )
-                is Success -> oldState.copy(
-                    isRefreshing = false,
-                    followedOnly = enabled,
-                    currentPage = 1,
-                    data = data.distinctById(),
-                )
-                is Failure -> oldState.copy(
-                    isRefreshing = false,
-                    error = error.wrapImmutable()
-                )
-            }
-
-        data class Start(
-            val enabled: Boolean,
-        ) : SetFollowMode()
-
-        data class Success(
-            val data: List<ThreadItemData>,
-            val enabled: Boolean,
-        ) : SetFollowMode()
-
-        data class Failure(
-            val error: Throwable,
-        ) : SetFollowMode()
-    }
-
     sealed class Refresh private constructor() : PersonalizedPartialChange {
         override fun reduce(oldState: PersonalizedUiState): PersonalizedUiState =
             when (this) {
@@ -430,8 +355,6 @@ data class PersonalizedUiState(
     val data: ImmutableList<ThreadItemData> = persistentListOf(),
     val hiddenThreadIds: ImmutableList<Long> = persistentListOf(),
     val refreshPosition: Int = 0,
-    /** 「只看已关注吧」模式 */
-    val followedOnly: Boolean = false,
 ): UiState
 
 sealed interface PersonalizedUiEvent : UiEvent {

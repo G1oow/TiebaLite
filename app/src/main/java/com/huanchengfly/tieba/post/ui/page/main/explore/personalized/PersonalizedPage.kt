@@ -23,15 +23,11 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -57,7 +53,6 @@ import com.huanchengfly.tieba.post.arch.onEvent
 import com.huanchengfly.tieba.post.arch.onGlobalEvent
 import com.huanchengfly.tieba.post.arch.pageViewModel
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
-import com.huanchengfly.tieba.post.ui.common.theme.compose.pullRefreshIndicator
 import com.huanchengfly.tieba.post.ui.models.ThreadItemData
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
 import com.huanchengfly.tieba.post.ui.widgets.compose.BlockTip
@@ -68,6 +63,7 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.FeedCard
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
 import com.huanchengfly.tieba.post.ui.widgets.compose.LoadMoreLayout
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
+import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
 import com.huanchengfly.tieba.post.ui.widgets.compose.VerticalDivider
 import com.huanchengfly.tieba.post.ui.widgets.compose.states.StateScreen
 import kotlinx.collections.immutable.ImmutableList
@@ -75,7 +71,6 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun PersonalizedPage(
     viewModel: PersonalizedViewModel = pageViewModel()
@@ -113,14 +108,7 @@ fun PersonalizedPage(
         prop1 = PersonalizedUiState::hiddenThreadIds,
         initial = persistentListOf()
     )
-    val followedOnly by viewModel.uiState.collectPartialAsState(
-        prop1 = PersonalizedUiState::followedOnly,
-        initial = false
-    )
-    val pullRefreshState = rememberPullRefreshState(
-        refreshing = isRefreshing,
-        onRefresh = { viewModel.send(PersonalizedUiIntent.Refresh) }
-    )
+
     val lazyListState = rememberLazyListState()
     viewModel.bindScrollToTopEvent(lazyListState = lazyListState)
     val isEmpty by remember {
@@ -182,7 +170,10 @@ fun PersonalizedPage(
             }
         }
     ) {
-        Box(modifier = Modifier.pullRefresh(pullRefreshState)) {
+        PullRefresh(
+            refreshing = isRefreshing,
+            onRefresh = { viewModel.send(PersonalizedUiIntent.Refresh) },
+        ) {
             LoadMoreLayout(
                 isLoading = isLoadingMore,
                 onLoadMore = { viewModel.send(PersonalizedUiIntent.LoadMore(currentPage + 1)) },
@@ -195,10 +186,6 @@ fun PersonalizedPage(
                     dataProvider = { data },
                     refreshPositionProvider = { refreshPosition },
                     hiddenThreadIdsProvider = { hiddenThreadIds },
-                    followedOnly = followedOnly,
-                    onSetFollowedOnly = {
-                        viewModel.send(PersonalizedUiIntent.SetFollowMode(it))
-                    },
                     onItemClick = {
                         navigator.navigate("thread/${it.id}")
                     },
@@ -229,14 +216,6 @@ fun PersonalizedPage(
                     onClickUser = { navigator.navigate("user/${it.id}") }
                 )
             }
-
-            PullRefreshIndicator(
-                refreshing = isRefreshing,
-                state = pullRefreshState,
-                modifier = Modifier.align(Alignment.TopCenter),
-                backgroundColor = ExtendedTheme.colors.pullRefreshIndicator,
-                contentColor = ExtendedTheme.colors.primary,
-            )
 
             AnimatedVisibility(
                 visible = showRefreshTip,
@@ -276,8 +255,6 @@ private fun FeedList(
     dataProvider: () -> ImmutableList<ThreadItemData>,
     refreshPositionProvider: () -> Int,
     hiddenThreadIdsProvider: () -> ImmutableList<Long>,
-    followedOnly: Boolean,
-    onSetFollowedOnly: (Boolean) -> Unit,
     onItemClick: (ThreadInfo) -> Unit,
     onItemReplyClick: (ThreadInfo) -> Unit,
     onAgree: (ThreadInfo) -> Unit,
@@ -297,12 +274,6 @@ private fun FeedList(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        item(key = "followed_only_filter") {
-            FollowedOnlyFilter(
-                checked = followedOnly,
-                onCheckedChange = onSetFollowedOnly
-            )
-        }
         itemsIndexed(
             items = data,
             key = { _, (item) -> "${item.get { id }}" },
@@ -403,37 +374,6 @@ private fun RefreshTip(
         Text(
             text = stringResource(id = R.string.tip_refresh),
             style = MaterialTheme.typography.subtitle1
-        )
-    }
-}
-
-/**
- * 推荐流「只看已关注吧」过滤行。位于列表顶部：关闭时不过滤（原生推荐流），
- * 开启后按本地关注吧列表过滤（issue #2）。
- */
-@Composable
-private fun FollowedOnlyFilter(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(ExtendedTheme.colors.chip)
-            .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 16.dp, vertical = 10.dp)
-    ) {
-        Text(
-            text = stringResource(id = R.string.personalized_followed_only),
-            style = MaterialTheme.typography.subtitle1
-        )
-        androidx.compose.material.Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange
         )
     }
 }
