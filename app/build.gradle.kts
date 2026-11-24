@@ -117,8 +117,16 @@ android {
         // 2.4 起 strong skipping 已默认开启，该 flag 本身被标记为错误，这里不再显式设置
         includeSourceInformation = false
         // 原先把这两个参数塞进 kotlinOptions 的 freeCompilerArgs（-P plugin:...），2.4 已禁用该 DSL
-        metricsDestination = layout.buildDirectory.dir("compose_metrics")
-        reportsDestination = layout.buildDirectory.dir("compose_metrics")
+        // 指标 / 报告是诊断产物，默认关闭。
+        // 原因：AGP 9 传给 Compose 插件的 moduleName 形如 "TiebaLite:app_debug"（带冒号），插件把它和
+        // 文件名拼成 ".../compose_metrics/debug/TiebaLite:app_debug-module.json"。Windows 把冒号当
+        // 「文件名:NTFS 数据流」分隔符：轻则指标被塞进 0 字节 TiebaLite 文件的 ADS（等于没产出），
+        // 重则 createNewFile 抛 IOException: Invalid file path，整个 Kotlin 编译器崩掉
+        // （IrGenerationExtensionException）。需要时用 -PenableComposeMetrics=true 打开。
+        if (project.providers.gradleProperty("enableComposeMetrics").isPresent) {
+            metricsDestination = layout.buildDirectory.dir("compose_metrics")
+            reportsDestination = layout.buildDirectory.dir("compose_metrics")
+        }
         // compose_stability_configuration.txt 被本地 gitignore，CI checkout 后缺失；
         // 文件不存在时不要设置，避免插件拿到不存在的路径
         if (rootDir.resolve("compose_stability_configuration.txt").exists()) {
