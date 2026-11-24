@@ -63,9 +63,6 @@ import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -123,7 +120,6 @@ import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.common.theme.compose.invertChipBackground
 import com.huanchengfly.tieba.post.ui.common.theme.compose.invertChipContent
 import com.huanchengfly.tieba.post.ui.common.theme.compose.loadMoreIndicator
-import com.huanchengfly.tieba.post.ui.common.theme.compose.pullRefreshIndicator
 import com.huanchengfly.tieba.post.ui.common.theme.compose.threadBottomBar
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
 import com.huanchengfly.tieba.post.ui.page.ProvideNavigator
@@ -150,6 +146,7 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import com.huanchengfly.tieba.post.ui.widgets.compose.FloatingBottomBar
 import com.huanchengfly.tieba.post.ui.widgets.compose.floatingBarColor
 import com.huanchengfly.tieba.post.ui.widgets.compose.OriginThreadCard
+import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
 import com.huanchengfly.tieba.post.ui.widgets.compose.PromptDialog
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
 import com.huanchengfly.tieba.post.ui.widgets.compose.TextWithMinWidth
@@ -888,19 +885,6 @@ fun ThreadPage(
         }
     }
 
-    val pullRefreshState = rememberPullRefreshState(
-        refreshing = isRefreshing,
-        onRefresh = {
-            viewModel.send(
-                ThreadUiIntent.LoadFirstPage(
-                    threadId,
-                    curForumId,
-                    isSeeLz,
-                    curSortType
-                )
-            )
-        }
-    )
 
     @Composable
     fun PostCard(
@@ -1229,9 +1213,19 @@ fun ThreadPage(
                     modifier = Modifier
                         .fillMaxSize()
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .pullRefresh(state = pullRefreshState, enabled = enablePullRefresh)
+                    PullRefresh(
+                        refreshing = isRefreshing,
+                        onRefresh = {
+                            viewModel.send(
+                                ThreadUiIntent.LoadFirstPage(
+                                    threadId,
+                                    curForumId,
+                                    isSeeLz,
+                                    curSortType
+                                )
+                            )
+                        },
+                        enabled = enablePullRefresh,
                     ) {
                         LoadMoreLayout(
                             isLoading = isLoadingMore,
@@ -1519,14 +1513,6 @@ fun ThreadPage(
                                 }
                             }
                         }
-
-                        PullRefreshIndicator(
-                            refreshing = isRefreshing,
-                            state = pullRefreshState,
-                            modifier = Modifier.align(Alignment.TopCenter),
-                            backgroundColor = ExtendedTheme.colors.pullRefreshIndicator,
-                            contentColor = ExtendedTheme.colors.primary,
-                        )
                     }
                 }
                 // 帖子菜单：只有点击底栏「⋮」时才创建，关闭后立即销毁。

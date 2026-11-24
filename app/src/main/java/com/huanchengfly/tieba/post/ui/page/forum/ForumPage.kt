@@ -116,7 +116,7 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import com.huanchengfly.tieba.post.ui.widgets.compose.stickyHeaderTopInset
 
 import com.huanchengfly.tieba.post.ui.widgets.compose.PagerTabIndicator
-import com.huanchengfly.tieba.post.ui.widgets.compose.PullToRefreshLayout
+import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
 import com.huanchengfly.tieba.post.ui.widgets.compose.ScrollableTabRow
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
 import com.huanchengfly.tieba.post.ui.widgets.compose.TabClickMenu
@@ -645,7 +645,7 @@ fun ForumPage(
                     }
                 }
 
-                PullToRefreshLayout(
+                PullRefresh(
                     refreshing = isFakeLoading,
                     onRefresh = {
                         coroutineScope.emitGlobalEvent(

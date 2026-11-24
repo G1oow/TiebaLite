@@ -52,6 +52,26 @@ class BarsAutoHideState internal constructor(
     /** 关闭后不再改变隐藏状态（例如「不跟随滑动隐藏」设置关掉时）。 */
     var enabled: Boolean = true
 
+    /**
+     * 页面级「顶栏常驻」计数。>0 时不跟随滚动收起。
+     *
+     * 用于页头本身就是导航标识的页面（个人主页：头像 / ID / 返回 / 黑名单）。
+     * 这类页面如果让栏滑走，正文仍按栏高留了 padding，状态栏下方会留下一条纯底色空白带。
+     *
+     * 计数器而不是布尔值：栏状态是 Activity 级共享的，同一时刻可能有多个页面持有请求。
+     */
+    private var pinCount = 0
+
+    /** 请求顶栏常驻并立即展开；与 [unpin] 成对调用（页面进入 / 离开）。 */
+    fun pin() {
+        pinCount++
+        show()
+    }
+
+    fun unpin() {
+        if (pinCount > 0) pinCount--
+    }
+
     private fun animateTo(target: Float) {
         if (fraction.targetValue == target) return
         scope.launch {
@@ -76,7 +96,7 @@ class BarsAutoHideState internal constructor(
      * 把栏抖成频闪。
      */
     internal fun onScroll(deltaY: Float) {
-        if (!enabled || deltaY == 0f) return
+        if (!enabled || pinCount > 0 || deltaY == 0f) return
         val direction = if (deltaY > 0f) 1 else -1
         if (direction != lastDirection) {
             lastDirection = direction
