@@ -81,8 +81,17 @@ object VersionCompat {
             basePart = s
         }
 
+        // swiftzer-semver 2.x 的 SemVer.parse 严格要求 MAJOR.MINOR.PATCH；1.x 会把缺省段补 0。
+        // 依赖升级后 "4.0" 这类 tag 从「可解析」变成 Incompatible（等于丢掉这次更新提示），
+        // 这里按原语义补齐缺失段，保持与 1.x 相同的容忍度。
+        val normalizedBase = when (basePart.count { it == '.' }) {
+            0 -> "$basePart.0.0"
+            1 -> "$basePart.0"
+            else -> basePart
+        }
+
         val base = try {
-            SemVer.parse(basePart)
+            SemVer.parse(normalizedBase)
         } catch (e: IllegalArgumentException) {
             return null
         }
