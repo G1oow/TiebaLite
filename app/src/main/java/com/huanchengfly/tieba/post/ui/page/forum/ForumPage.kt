@@ -45,7 +45,7 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.VerticalAlignTop
-import androidx.compose.material.rememberScaffoldState
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -364,8 +364,7 @@ fun ForumPage(
         viewModel.initialized = true
     }
 
-    val scaffoldState = rememberScaffoldState()
-    val snackbarHostState = scaffoldState.snackbarHostState
+    val snackbarHostState = remember { SnackbarHostState() }
     viewModel.onEvent<ForumUiEvent.SignIn.Success> {
         snackbarHostState.showSnackbar(
             message = context.getString(
@@ -514,7 +513,7 @@ fun ForumPage(
             }
         ) {
             MyScaffold(
-                scaffoldState = scaffoldState,
+                snackbarHostState = snackbarHostState,
                 backgroundColor = Color.Transparent,
                 modifier = Modifier.fillMaxSize(),
                 topBar = {

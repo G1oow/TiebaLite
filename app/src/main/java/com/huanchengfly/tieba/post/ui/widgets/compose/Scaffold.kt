@@ -2,26 +2,19 @@ package com.huanchengfly.tieba.post.ui.widgets.compose
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.DismissValue
-import androidx.compose.material.DrawerDefaults
-import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.FabPosition
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Scaffold
-import androidx.compose.material.ScaffoldState
-import androidx.compose.material.SnackbarHost
-import androidx.compose.material.SnackbarHostState
-import androidx.compose.material.SwipeToDismiss
-import androidx.compose.material.contentColorFor
-import androidx.compose.material.rememberDismissState
-import androidx.compose.material.rememberScaffoldState
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -33,19 +26,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-@OptIn(ExperimentalMaterialApi::class)
+/**
+ * 可上滑关掉的 Snackbar 宿主（M3 [SwipeToDismissBox]）。
+ *
+ * 只做「滑动 → 关掉当前那条」：确认状态后立即 [reset]，宿主本身不真的消失，
+ * 否则后续的 Snackbar 会跟着一起被移出屏幕。
+ */
 @Composable
 private fun SwipeToDismissSnackbarHost(hostState: SnackbarHostState) {
-    val dismissState = rememberDismissState(
-        confirmStateChange = { value ->
-            if (value != DismissValue.Default) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value != SwipeToDismissBoxValue.Settled) {
                 hostState.currentSnackbarData?.dismiss()
                 true
             } else {
@@ -54,13 +50,15 @@ private fun SwipeToDismissSnackbarHost(hostState: SnackbarHostState) {
         }
     )
     LaunchedEffect(dismissState.currentValue) {
-        if (dismissState.currentValue != DismissValue.Default) {
+        if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
             dismissState.reset()
         }
     }
-    SwipeToDismiss(state = dismissState, background = {}) {
-        SnackbarHost(hostState = hostState)
-    }
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {},
+        content = { SnackbarHost(hostState = hostState) },
+    )
 }
 
 val LocalSnackbarHostState = compositionLocalOf<SnackbarHostState> { error("no scaffold here!") }
@@ -89,38 +87,27 @@ private fun mergedBarsPadding(outer: PaddingValues, inner: PaddingValues): Paddi
 }
 
 /**
- * 页面骨架（**悬浮栏**布局）。
+ * 页面骨架（**悬浮栏**布局，AGENTS.md §5.3 / §6）。
  *
  * 与 Material 原生 `Scaffold` 的关键差异：`topBar` / `bottomBar` 是**浮层**，
  * 不占内容布局——正文铺满整屏，只把实测栏高作为 [PaddingValues] 交给内容
  * （列表用它当 `contentPadding`）。这样栏收起滑走时，露出的就是正文本身，
  * 不会留一条空白，也不会出现「内容只到栏顶为止」的截断。
+ * 因此这里**不套** M3 `Scaffold`：它会为栏预留布局空间，与 overlay 语义冲突。
  *
  * 栏的实测高度会作为组合局部值向上累加（见 [LocalBarsContentPadding]）：
  * 主界面的胶囊底栏 + 子页面的顶栏会相加后一起交给最内层的列表。
- *
- * 仍保留 Material2 `Scaffold` 的抽屉分支：抽屉需要 modal 手势与 scrim，
- * 目前没有页面在用，等该场景迁移到 M3 时一并替换。
  */
 @Composable
 fun MyScaffold(
     modifier: Modifier = Modifier,
-    scaffoldState: ScaffoldState = rememberScaffoldState(),
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     topBar: @Composable () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     snackbarHost: @Composable (SnackbarHostState) -> Unit = { SwipeToDismissSnackbarHost(it) },
     floatingActionButton: @Composable () -> Unit = {},
     floatingActionButtonPosition: FabPosition = FabPosition.End,
-    isFloatingActionButtonDocked: Boolean = false,
-    drawerContent: @Composable (ColumnScope.() -> Unit)? = null,
-    drawerGesturesEnabled: Boolean = true,
-    drawerShape: Shape = MaterialTheme.shapes.large,
-    drawerElevation: Dp = DrawerDefaults.Elevation,
-    drawerBackgroundColor: Color = MaterialTheme.colors.surface,
-    drawerContentColor: Color = contentColorFor(drawerBackgroundColor),
-    drawerScrimColor: Color = DrawerDefaults.scrimColor,
-    backgroundColor: Color = MaterialTheme.colors.background,
-    contentColor: Color = contentColorFor(backgroundColor),
+    backgroundColor: Color = MaterialTheme.colorScheme.background,
     content: @Composable (PaddingValues) -> Unit
 ) {
     // 新页面进入时把顶栏/底栏恢复成展开状态：栏状态是 Activity 级共享的，
@@ -129,44 +116,21 @@ fun MyScaffold(
     LaunchedEffect(barsAutoHideState) {
         barsAutoHideState?.show()
     }
-    CompositionLocalProvider(LocalSnackbarHostState provides scaffoldState.snackbarHostState) {
-        if (drawerContent != null) {
-            Scaffold(
-                modifier = modifier,
-                scaffoldState = scaffoldState,
-                topBar = topBar,
-                bottomBar = bottomBar,
-                snackbarHost = { snackbarHost(it) },
-                floatingActionButton = floatingActionButton,
-                floatingActionButtonPosition = floatingActionButtonPosition,
-                isFloatingActionButtonDocked = isFloatingActionButtonDocked,
-                drawerContent = drawerContent,
-                drawerGesturesEnabled = drawerGesturesEnabled,
-                drawerShape = drawerShape,
-                drawerElevation = drawerElevation,
-                drawerBackgroundColor = drawerBackgroundColor,
-                drawerContentColor = drawerContentColor,
-                drawerScrimColor = drawerScrimColor,
-                backgroundColor = backgroundColor,
-                contentColor = contentColor,
-                content = content,
-            )
-            return@CompositionLocalProvider
-        }
 
-        val density = LocalDensity.current
-        var topBarHeightPx by remember { mutableIntStateOf(0) }
-        var bottomBarHeightPx by remember { mutableIntStateOf(0) }
-        val topBarHeight = with(density) { topBarHeightPx.toDp() }
-        val bottomBarHeight = with(density) { bottomBarHeightPx.toDp() }
-        val innerPadding = remember(topBarHeight, bottomBarHeight) {
-            PaddingValues(top = topBarHeight, bottom = bottomBarHeight)
-        }
-        val mergedPadding = mergedBarsPadding(
-            outer = LocalBarsContentPadding.current,
-            inner = innerPadding
-        )
+    val density = LocalDensity.current
+    var topBarHeightPx by remember { mutableIntStateOf(0) }
+    var bottomBarHeightPx by remember { mutableIntStateOf(0) }
+    val topBarHeight = with(density) { topBarHeightPx.toDp() }
+    val bottomBarHeight = with(density) { bottomBarHeightPx.toDp() }
+    val innerPadding = remember(topBarHeight, bottomBarHeight) {
+        PaddingValues(top = topBarHeight, bottom = bottomBarHeight)
+    }
+    val mergedPadding = mergedBarsPadding(
+        outer = LocalBarsContentPadding.current,
+        inner = innerPadding
+    )
 
+    CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
         Box(
             modifier = modifier
                 .fillMaxSize()
@@ -198,7 +162,7 @@ fun MyScaffold(
                     .fillMaxWidth()
                     .padding(bottom = bottomBarHeight)
             ) {
-                snackbarHost(scaffoldState.snackbarHostState)
+                snackbarHost(snackbarHostState)
             }
             Box(
                 modifier = Modifier

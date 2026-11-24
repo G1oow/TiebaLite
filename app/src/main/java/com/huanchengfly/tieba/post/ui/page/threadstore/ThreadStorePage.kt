@@ -19,7 +19,7 @@ import androidx.compose.material.Text
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
-import androidx.compose.material.rememberScaffoldState
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -107,9 +107,9 @@ fun ThreadStorePage(
     val isError by remember { derivedStateOf { error != null } }
 
     val context = LocalContext.current
-    val scaffoldState = rememberScaffoldState()
+    val snackbarHostState = remember { SnackbarHostState() }
     viewModel.onEvent<ThreadStoreUiEvent.Delete.Failure> {
-        scaffoldState.snackbarHostState.showSnackbar(
+        snackbarHostState.showSnackbar(
             context.getString(
                 R.string.delete_store_failure,
                 it.errorMsg
@@ -117,11 +117,11 @@ fun ThreadStorePage(
         )
     }
     viewModel.onEvent<ThreadStoreUiEvent.Delete.Success> {
-        scaffoldState.snackbarHostState.showSnackbar(context.getString(R.string.delete_store_success))
+        snackbarHostState.showSnackbar(context.getString(R.string.delete_store_success))
     }
     MyScaffold(
         backgroundColor = Color.Transparent,
-        scaffoldState = scaffoldState,
+        snackbarHostState = snackbarHostState,
         topBar = {
             TitleCentredToolbar(
                 title = {

@@ -42,8 +42,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material.ProvideTextStyle
-import androidx.compose.material.SnackbarDuration
-import androidx.compose.material.SnackbarResult
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
@@ -66,7 +66,7 @@ import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
-import androidx.compose.material.rememberScaffoldState
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -518,7 +518,7 @@ fun ThreadPage(
         )
         viewModel.initialized = true
     }
-    val scaffoldState = rememberScaffoldState()
+    val snackbarHostState = remember { SnackbarHostState() }
     val data by viewModel.uiState.collectPartialAsState(
         prop1 = ThreadUiState::data,
         initial = persistentListOf()
@@ -690,12 +690,12 @@ fun ThreadPage(
         }
     }
     viewModel.onEvent<ThreadUiEvent.AddFavoriteSuccess> {
-        scaffoldState.snackbarHostState.showSnackbar(
+        snackbarHostState.showSnackbar(
             context.getString(R.string.message_add_favorite_success, it.floor)
         )
     }
     viewModel.onEvent<ThreadUiEvent.RemoveFavoriteSuccess> {
-        scaffoldState.snackbarHostState.showSnackbar(
+        snackbarHostState.showSnackbar(
             context.getString(R.string.message_remove_favorite_success)
         )
     }
@@ -832,10 +832,10 @@ fun ThreadPage(
 
     LaunchedEffect(Unit) {
         if (from == ThreadPageFrom.FROM_STORE && extra is ThreadPageFromStoreExtra && extra.maxPid != postId) {
-            val result = scaffoldState.snackbarHostState.showSnackbar(
+            val result = snackbarHostState.showSnackbar(
                 context.getString(R.string.message_store_thread_update, extra.maxFloor),
                 context.getString(R.string.button_load_new),
-                SnackbarDuration.Long
+                duration = SnackbarDuration.Long
             )
             if (result == SnackbarResult.ActionPerformed) {
                 viewModel.send(
@@ -1064,7 +1064,7 @@ fun ThreadPage(
             }
         ) {
             MyScaffold(
-                scaffoldState = scaffoldState,
+                snackbarHostState = snackbarHostState,
                 topBar = {
                     TopBar(
                         forum = forum,

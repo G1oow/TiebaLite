@@ -12,7 +12,8 @@ import androidx.compose.material.Tab
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.rememberScaffoldState
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -45,13 +46,13 @@ fun HistoryPage(
 ) {
     val pagerState = rememberPagerState { 2 }
     val coroutineScope = rememberCoroutineScope()
-    val scaffoldState = rememberScaffoldState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val context = LocalContext.current
 
     MyScaffold(
         backgroundColor = Color.Transparent,
-        scaffoldState = scaffoldState,
+        snackbarHostState = snackbarHostState,
         topBar = {
             TitleCentredToolbar(
                 title = {
@@ -69,7 +70,7 @@ fun HistoryPage(
                             HistoryUtil.deleteAll()
                             emitGlobalEvent(HistoryListUiEvent.DeleteAll)
                             launch {
-                                scaffoldState.snackbarHostState.showSnackbar(
+                                snackbarHostState.showSnackbar(
                                     context.getString(
                                         R.string.toast_clear_success
                                     )
