@@ -235,7 +235,7 @@ FloatingBottomBar(color = floatingBarColor(ExtendedTheme.colors.bottomBar)) {
    ```
 
    CI 会按 tag 精确匹配该标题抽取发布说明，标题格式错误会导致 Release 说明为空。
-3. 各语言 README（`README.md` / `README.zh-CN.md` / `README.ja.md` / `README.ko.md`）的更新日志段落。
+3. `README.zh-CN.md` 的更新日志段落（**仓库只维护中文 README**，`README.md` / `README.ja.md` / `README.ko.md` 已移除）。
 
 提交信息用 Conventional Commits，例如 `feat(ui): …` / `fix(thread): …` / `chore: version bump to v4.0.64 …`。
 
