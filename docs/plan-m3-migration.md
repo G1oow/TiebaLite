@@ -20,15 +20,17 @@
 
 ---
 
-## 1. 现状快照（2026-11-24，阶段 2a 之后）
+## 1. 现状快照（2026-11-24，阶段 2b 补之后）
 
 | 指标 | 数值 |
 |---|---|
 | 业务 `.kt` 文件总数 | 395 |
-| 仍 import M2 core（不含 icons）的文件 | **99** |
-| import M3 的文件 | **12** |
-| `MaterialTheme.typography.*` 引用 | 138 处 / 57 文件 |
-| `MaterialTheme.colors.*` 引用 | 54 处 |
+| 仍 import M2 core（不含 icons）的文件 | **98** |
+| import M3 的文件 | **15** |
+| `MaterialTheme.typography.*` 引用 | 137 处 / 57 文件 |
+| `MaterialTheme.colors.*` 引用 | 54 处 / 26 文件 |
+
+（阶段 2b 补只修组件契约，不做 M2 → M3 的批量替换，因此上表变化很小。）
 
 M2 存量热点（按文件数，`import` 计数）：
 
@@ -105,6 +107,44 @@ M2 存量热点（按文件数，`import` 计数）：
 - 无障碍树 bounds 逐行比对：浏览记录页、主题选择页 **14 行完全一致**；贴吧页仅列表条目变化，标题 `[231,288][389,363]`、页签 `[42,480][110,529]` 一致。
 - 栏收起行为（贴吧页，3 次上滑 / 3 次下滑）：收起后页签 `y480 → 249`、标题移出语义树；滑回后 `y288 / y480`，与改动前 APK 完全一致（重复跑一次复现；首次 73px 偏差是动画未落定）。
 
+### 阶段 2b 补 — 前端组件契约修复（11 项，来自跨页面评审）
+
+阶段 2a / 2b 把栏与脚手架换到 M3 之后，跨页面评审定位到「同一份布局、手势、状态被多层同时处理」的一批缺陷。修法统一为先修共享组件契约，再由页面按同一规则避让（没有逐页补 `padding` 或叠 `zIndex`）。
+
+| # | 问题 | 处理 | 主要落点 |
+|---|---|---|---|
+| 1 | 栏已是 overlay，页面与列表各避让一次，首项下方多出一整条栏高 | `MyLazyColumn` / `MyLazyVerticalGrid` 增加 `avoidTopBar`，已用固定头部把列表推到栏下方的页面传 `false` | `LazyLists.kt`、`HomePage.kt`、`ForumThreadListPage.kt` |
+| 2 | 吸顶条把「吸顶位置」做成列表项高度：未吸顶也多一段栏高，栏动画每帧改列表项尺寸 | 新增 `myStickyHeader`，吸顶只改绘制位移（`graphicsLayer`），列表项高度恒定 | `LazyLists.kt`、9 处 `stickyHeader` |
+| 3 | 折叠页头把整段 `available.y` 声明为已消费，边界处吞掉剩余滚动 | 删掉自写 `NestedScrollConnection`，页头改为跟随栏位移（`topBarAwareOffset`），完整高度留在布局中 | `ForumPage.kt`、`UserProfilePage.kt`、`BarsAutoHide.kt` |
+| 4 | 自绘刷新把手势回调缓存在旧状态里，刷新判断用首次组合的值 | 换 M3 `PullToRefreshBox` 统一封装（D6），判断走 `rememberUpdatedState`；提示登记到 `LocalPullRefreshOverlay`，由脚手架画在栏之上 | `PullToRefresh.kt`、`Scaffold.kt`、`LoadMore.kt` |
+| 5 | 搜索刷新与分页是两条独立流水线，旧查询晚到的分页会污染新列表 | 刷新 + 分页收进同一条 `flatMapLatest`；`PartialChange` 带 `requestId`，reducer 丢弃不符代际的结果 | `SearchThreadViewModel.kt`、`SearchForumViewModel.kt`、`SearchUserViewModel.kt` |
+| 6 | 页面事件订阅以回调用作 `DisposableEffect` key，回调一换就取消重订阅，事件流无 replay → 丢事件 | `Flow.onEvent` 改为按 Flow 稳定订阅 + `rememberUpdatedState` 回调 | `Extensions.kt` |
+| 7 | 「滚到顶部」广播给所有存活列表 | 只由当前可见且 RESUMED 的列表处理；吧页 `Refresh` / `BackToTop` 带 `forumId` | `LazyLists.kt`、`ForumThreadListViewModel.kt` |
+| 8 | 宽屏内容被重复收窄（839dp→730dp，840dp 反而 630dp） | `Container` 只限制绝对上限 `AdaptiveLayout.contentMaxWidth`，去掉 87% / 75% | `Containers.kt` |
+| 9 | 全屏弹窗只在打开瞬间拷贝 Activity 像素尺寸 | 改 `MATCH_PARENT`，随窗口约束变化 | `AnyPopDialog.kt` |
+| 10 | 设置弹窗「修改 → 取消 → 再打开」回退成旧稿 | 打开前同步重置草稿，去掉 `if (show)` 里的异步重置 | `TimePickerPref.kt`、`EditTextPref.kt` |
+| 11 | Snackbar 关闭手势被 M3 `SwipeToDismissBox` 改成横向 | 自绘纵向 `draggable` 恢复上滑关闭，拖动状态按条独立 | `Scaffold.kt` |
+
+同批修掉的既有回归（阶段 2b 引入）：
+
+| 现象 | 根因 | 修复 |
+|---|---|---|
+| 从「我 / 首页」push 进入的页面整页只剩一行标题 | `TitleCentredToolbar` 标题行 `fillMaxSize()` 在浮层松约束下把顶栏撑成整屏（实测 `barHeightPx=2400`） | 标题行定高 `TopBarRowHeight = 56.dp` |
+| 未登录时点左上角头像无反应 | 未登录分支是裸 `Image`（无 `clickable`） | 改为可点击 → `Routes.LOGIN`，补 `contentDescription` |
+
+验收证据（`emulator-5560`，1080x2400，状态栏 136px）：
+
+- `:app:compileDebugKotlin` → `BUILD SUCCESSFUL`；`:app:assembleDebug` → `BUILD SUCCESSFUL`。
+- `:app:testDebugUnitTest` → 48 个用例：`SearchThreadStateRegressionTest` 5/5、`UpdateOriginTest` 11/11 通过；`VersionCompatTest` 31 个中 2 个失败（`compare("4.0", "4.0.0")` 期望 `Equal` 实得 `Incompatible`）。被测文件与依赖配置与本分支改动无交集（`git diff` 为空），属既有失败。
+- `:app:connectedDebugAndroidTest` → `BUILD SUCCESSFUL`（Pixel_7(AVD)）：`UiContractsTest` 4 个用例全部通过（栏动画期间列表项尺寸 / 视口 / contentPadding 不变且不消费位移、事件回调替换后仍单订阅、刷新用最新回调并保留指示器、Snackbar 上滑关闭后下一条不被移走）。
+- 栏与吸顶：帖子页「只看楼主」粘顶条，顶栏收起 `[902,46][1038,172]`、展开 `[902,210][1038,319]`，差值 164px = 顶栏可见高度；吧页页签展开 `y249` → 收起 `y102` → 回滑 `y249`；浏览记录页「今天早些时候」展开 `704` → 收起 `431`。
+- 首页第 1 项：「发现更多」`[189,269][333,321]` 与网格首项「经过贴吧」`[84,422][208,467]` 间隔 101px，不再含多算的 210px 栏高；吧页页签底部到首项顶部 240px → 61px。
+- 下拉刷新提示：首页 / 吧页下拉时提示 `[476,136][605,182]`（栏之上），顶栏与内容位置不动。
+- 浅色（深海蓝）/ 纯黑两套主题：首页、我、设置、浏览记录、主题选择五个页面语义树 bounds 一致（如「请先登录」`[42,285][849,346]`、页签 `[340,321]`），无整页塌陷。
+- 旋转（横屏 2400x1080）：设置页标题 `[1215,110][1321,185]`、列表项完整；首页走 NavigationRail（`首页 / 动态 / 消息 / 我` 在 `x≈220..399`），符合 AGENTS.md §4-4。
+- 弹窗草稿：「自动签到时间」`09:00` → 滚到 `11` → 取消 → 重新打开仍居中在 `09`（`ui-timepick2/aftercancel/timepick3`）；走「确定」则写回 `11:00`，无回归。
+- 浏览记录空态：无数据时居中显示「暂无浏览记录 / 看过的贴子和进过的吧会出现在这里」，不再白屏。
+
 ---
 
 ## 3. 待做阶段
@@ -123,7 +163,7 @@ M2 存量热点（按文件数，`import` 计数）：
 
 ### 阶段 3 — 主界面 + 下拉刷新统一
 
-1. 先在 `ui/widgets/compose` 落一个统一的 `PullRefresh` 包装（M3 `PullToRefreshBox`），**一次封装、逐页替换**，不要 16 个页面各写一套。
+1. ~~先在 `ui/widgets/compose` 落一个统一的 `PullRefresh` 包装~~ **已完成**（阶段 2b 补）：`PullToRefreshLayout` 已是 M3 `PullToRefreshBox` 的唯一入口，提示内容可注入、默认由脚手架画在栏之上。剩余工作是让还没换的手写刷新手势（`pullrefresh.*` 各处）改用它，**不要**再新写一套。
 2. `NavigationComponents.kt`：M2 `NavigationRail` / `NavigationRailItem` / `BottomNavigationItem` → M3 `NavigationRail` / `NavigationBar`；大屏导航形态仍由 `MainPage` 统一决定（AGENTS.md §4-4）。
 3. 覆盖 `HomePage` / `UserPage` / `NotificationsPage` / `ExplorePage` / `PersonalizedPage` / `HotPage` / `ConcernPage`。
 
@@ -164,12 +204,12 @@ M2 存量热点（按文件数，`import` 计数）：
 | 大范围替换导致观感漂移 | 每阶段独立提交、独立验收；出问题只回滚该阶段提交，不动其它阶段 |
 | Windows 构建环境差异 | 见 AGENTS.md §2：Gradle user home 必须与工程同盘（Glide+KSP2）；Compose 指标默认关闭（冒号路径） |
 
-已知问题（阶段 2b 验证时发现，本阶段不处理）：
+已知问题（阶段 2b 验证时发现）与后续处理：
 
 | 现象 | 证据 | 结论 |
 |---|---|---|
-| `floatingBarColor()` 的 `compositeOver` 参数顺序反了：`color.compositeOver(overlay)` 是「不透明栏色盖在 12% 白上」，提亮被完全遮住，纯黑主题下顶栏 / 底栏实际仍是 `#000000` | 纯黑主题顶栏截图 `x=1000` 列 `y0..420` 全为 `0,0,0`，注释写的 `#1F1F1F` 未出现 | 既有问题，与 M3 迁移无关；修它会改变深色主题下的栏外观，需单独确认后再动 |
-| 浏览记录页滚动后整页空白、语义树为空 | 改动**前**的 APK 同样复现 | 既有问题，与本次改动无关 |
+| `floatingBarColor()` 的 `compositeOver` 参数顺序反了：`color.compositeOver(overlay)` 是「不透明栏色盖在 12% 白上」，提亮被完全遮住，纯黑主题下顶栏 / 底栏实际仍是 `#000000` | 纯黑主题顶栏截图 `x=1000` 列 `y0..420` 全为 `0,0,0`，注释写的 `#1F1F1F` 未出现 | **评估后不修**：改成 `overlay.compositeOver(color)` 会让深色 / 纯黑主题的顶栏与底栏整体变亮一档（`#000000` → `#1F1F1F`），用户 2026-11 明确不接受该观感变化。已回退代码，只把误导性注释改成与实现一致的说明 |
+| 打开「设置 / 关于 / 主题选择 / 浏览记录」等 push 路由后整页只剩一行工具栏：标题落在 `y≈1194`，正文与页签都不在语义树里；帖子页也只剩顶栏 + 底栏胶囊 | `TopAppBarContainer` 临时日志：首页 `topBarHeight=80dp/210px`（正常），push 页 `topBarHeight=914.3dp/2400px`（= 整屏） | **已修**（`9affea67`/`fb07d191` 引入的回归）：`TitleCentredToolbar` 的标题行用了 `Box(Modifier.fillMaxSize())`，顶栏在浮层里拿到松约束时会撑成整屏高，把正文挤出屏幕。改为定高 `TopBarRowHeight = 56.dp`（`Modifier.fillMaxWidth().height(...)`）。修复后设置 / 关于 / 主题选择 / 浏览记录 / 帖子页均正常渲染 |
 
 ---
 
@@ -179,6 +219,7 @@ M2 存量热点（按文件数，`import` 计数）：
 - [x] 阶段 1 — M3 主题桥接（`7883d9af`）
 - [x] 阶段 2a — `MyScaffold`（`601e5c8a`）
 - [x] 阶段 2b — `Toolbar.kt`（`fb07d191`）
+- [x] 阶段 2b 补 — 前端组件契约修复 11 项 + 既有回归两处（下拉刷新已按 D6 换 M3 `PullToRefreshBox`，阶段 3 只需复用 `PullToRefreshLayout`）
 - [ ] 阶段 2c — `Tabs.kt`
 - [ ] 阶段 2d — `Dialogs` / `Texts` / `Buttons` / `FeedCard`
 - [ ] 阶段 2e — 其它 M2 小件
