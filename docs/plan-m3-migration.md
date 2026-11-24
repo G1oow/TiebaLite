@@ -42,7 +42,7 @@ M2 存量热点（按文件数，`import` 计数）：
 | `ProvideTextStyle` / `LocalContentColor` | 12 / 12 | M3 有对应物；`LocalContentAlpha` 系列 M3 已移除，改显式 alpha |
 | `Surface` | 10 | 注意 `tonalElevation` 会染色，已有 `surfaceTint = Transparent` 兜底 |
 | `Tab` / `TabRow` | 8 | M3 是 `PrimaryTabRow` / `SecondaryTabRow` / `ScrollableTabRow` |
-| `TopAppBar` | 2 | 见阶段 2b，风险最高的一个 |
+| `TopAppBar` | 1 | 阶段 2b 已清掉主入口的 2 处，只剩 `LogPage.kt` 直接引用，随阶段 5 设置类一起清 |
 | `Scaffold` / `ScaffoldState` | **0** | 阶段 2a 已清空 |
 
 ---
@@ -77,22 +77,37 @@ M2 存量热点（按文件数，`import` 计数）：
 
 验收证据：`compileDebugKotlin` / `assembleDebug` 通过；发现页 / 帖子页 / 浏览记录页渲染正常；Snackbar 底色 `#CFCFCF`（主题反色面，非 M3 基线 `#313033`）；上滑可关闭。
 
+### 阶段 2b — `Toolbar.kt`（已完成，`fb07d191`）
+
+| 改动 | 内容 |
+|---|---|
+| `TitleCentredToolbar` | 去掉 M2 的 content 槽 `TopAppBar`（它本质只是 `Surface` + 空 `Column` 包装），保留原有居中行布局；标题样式改用 M3 `titleLarge`（与 M2 `h6` 同值） |
+| `Toolbar` | M3 `TopAppBar` + `TopAppBarDefaults.topAppBarColors(...)`；`expandedHeight = 56.dp` 对齐 M2 栏高；**`windowInsets = WindowInsets(0, 0, 0, 0)`**，否则 M3 自带状态栏 inset 会与 `TopAppBarContainer` 手画的底色带叠加 |
+| `AccountNavIcon` | M2 `DropdownMenuItem` 的 content 槽 → M3 `text` 槽；`contentPadding` 显式 16dp / 8dp，抵消 M3 默认的 12dp 左右边距 |
+| 内联组件 | `Text` / `Icon` / `IconButton` / `MaterialTheme` / `ProvideTextStyle` 全换 M3 |
+| `TextFields.kt` | `ProvideContentColor` 升级为 M2 + M3 双写：同时提供 M2 `LocalContentColor` / `LocalContentAlpha` 与 M3 `LocalContentColor` |
+| `Toolbar.kt` | 新增私有 `ProvideTopBarTitleStyle`：同时给两套 `LocalTextStyle`，否则页面传入的 M2 `Text` 标题会掉样式（h6 + Bold → body1） |
+
+**为什么不给 `TitleCentredToolbar` 套 M3 `TopAppBar`**：M3 单行栏强制 `heightIn(min = expandedHeight)`（默认 64dp）且标题槽自带 start inset；居中标题栏的高度由内容决定（48dp 的头像 / 图标），套上去栏会变高、标题会偏——与本阶段「观感不变」冲突，所以只换容器内的组件、保留行布局。
+
+踩坑记录：
+
+1. `topAppBarColors` 必须显式传 container / title / navigationIcon / actionIcon 四个色，否则回落到 M3 基线的 `surfaceContainer` / `onSurfaceVariant`。
+2. 两套 Material 的 `LocalTextStyle`、`LocalContentColor` 是**不同**的 `CompositionLocal`：只换 M3 一侧，页面传入的 M2 组件读不到（标题回落 body1、图标回落 onSurface）。迁移期由上面两个桥接函数兜住，页面全部迁到 M3 后删掉 M2 那一半。
+
+验收证据（同一台 `emulator-5554`，改动前 / 改动后 APK 各跑同一套脚本，容忍 8/255）：
+
+- `:app:compileDebugKotlin`、`:app:assembleDebug` → `BUILD SUCCESSFUL`；本文件无新增编译告警。
+- 静态渲染逐像素比对，顶栏区域差异**只有状态栏时钟**：
+  - 浏览记录页（`TitleCentredToolbar` + 页签，浅色）：顶栏区 275 / 496800，bbox `x[95..113] y[16..42]`；
+  - 贴吧页（`Toolbar` + 页签，浅色）：顶栏 + 页签区 255 / 669600，bbox 同上；整页差异全在列表内容（两次抓取之间贴子更新）；
+  - 主题选择页（`TitleCentredToolbar`，纯黑 AMOLED）：全页 177 / 2592000，bbox 同上。
+- 无障碍树 bounds 逐行比对：浏览记录页、主题选择页 **14 行完全一致**；贴吧页仅列表条目变化，标题 `[231,288][389,363]`、页签 `[42,480][110,529]` 一致。
+- 栏收起行为（贴吧页，3 次上滑 / 3 次下滑）：收起后页签 `y480 → 249`、标题移出语义树；滑回后 `y288 / y480`，与改动前 APK 完全一致（重复跑一次复现；首次 73px 偏差是动画未落定）。
+
 ---
 
 ## 3. 待做阶段
-
-### 阶段 2b — `Toolbar.kt`（下一步，风险最高）
-
-**范围**：`ui/widgets/compose/Toolbar.kt`（还 import 7 项 M2：`TopAppBar` / `Text` / `Icon` / `IconButton` / `DropdownMenuItem` / `MaterialTheme` / `ProvideTextStyle`）。
-
-**要点**
-
-1. `TopAppBar` → M3 `TopAppBar` + `TopAppBarDefaults.topAppBarColors(...)`；颜色仍取 `ExtendedTheme`，不要用 M3 默认。
-2. **必须显式 `windowInsets = WindowInsets(0)`**：M3 `TopAppBar` 自己会加状态栏 inset，而本项目由 `TopAppBarContainer` 手工画状态栏底色带，两套叠加会把标题顶下去。
-3. `TopAppBarContainer` 的外层「布局高度恒定 + 内层 `graphicsLayer` 位移」结构不能动（AGENTS.md §6-3）；M3 `TopAppBar` 有 `expandedHeight` / `collapsedHeight`，不要让它参与位移计算。
-4. `ProvideTextStyle` → M3 版本；`LocalContentColor` → M3 版本；`MaterialTheme.typography.h6` 等改成 M3 名字空间（映射表见阶段 1）。
-
-**验收**：`compileDebugKotlin` + 三条红线（无 scrim/残留、布局高度恒定、整条滑出）+ 浅深两套主题各一张截图。**D1 已放宽**：不再要求收起后页签停在状态栏下沿。
 
 ### 阶段 2c — `Tabs.kt`
 
@@ -149,6 +164,13 @@ M2 存量热点（按文件数，`import` 计数）：
 | 大范围替换导致观感漂移 | 每阶段独立提交、独立验收；出问题只回滚该阶段提交，不动其它阶段 |
 | Windows 构建环境差异 | 见 AGENTS.md §2：Gradle user home 必须与工程同盘（Glide+KSP2）；Compose 指标默认关闭（冒号路径） |
 
+已知问题（阶段 2b 验证时发现，本阶段不处理）：
+
+| 现象 | 证据 | 结论 |
+|---|---|---|
+| `floatingBarColor()` 的 `compositeOver` 参数顺序反了：`color.compositeOver(overlay)` 是「不透明栏色盖在 12% 白上」，提亮被完全遮住，纯黑主题下顶栏 / 底栏实际仍是 `#000000` | 纯黑主题顶栏截图 `x=1000` 列 `y0..420` 全为 `0,0,0`，注释写的 `#1F1F1F` 未出现 | 既有问题，与 M3 迁移无关；修它会改变深色主题下的栏外观，需单独确认后再动 |
+| 浏览记录页滚动后整页空白、语义树为空 | 改动**前**的 APK 同样复现 | 既有问题，与本次改动无关 |
+
 ---
 
 ## 6. 进度台账
@@ -156,7 +178,7 @@ M2 存量热点（按文件数，`import` 计数）：
 - [x] 阶段 0 — 5.0.0 发版
 - [x] 阶段 1 — M3 主题桥接（`7883d9af`）
 - [x] 阶段 2a — `MyScaffold`（`601e5c8a`）
-- [ ] 阶段 2b — `Toolbar.kt`
+- [x] 阶段 2b — `Toolbar.kt`（`fb07d191`）
 - [ ] 阶段 2c — `Tabs.kt`
 - [ ] 阶段 2d — `Dialogs` / `Texts` / `Buttons` / `FeedCard`
 - [ ] 阶段 2e — 其它 M2 小件
