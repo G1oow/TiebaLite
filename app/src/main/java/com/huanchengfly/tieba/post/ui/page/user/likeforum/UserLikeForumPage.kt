@@ -13,9 +13,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -42,6 +39,10 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
 import com.huanchengfly.tieba.post.ui.widgets.compose.states.StateScreen
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import androidx.compose.runtime.SideEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.huanchengfly.tieba.post.ui.widgets.compose.PullToRefreshLayout
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -50,6 +51,8 @@ fun UserLikeForumPage(
     fluid: Boolean = false,
     enablePullRefresh: Boolean = false,
     viewModel: UserLikeForumViewModel = pageViewModel(),
+    externalListState: LazyListState? = null,
+    onRefreshingChange: (Boolean) -> Unit = {},
 ) {
     val navigator = LocalNavigator.current
 
@@ -90,8 +93,10 @@ fun UserLikeForumPage(
         derivedStateOf { error != null }
     }
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+    SideEffect { onRefreshingChange(isRefreshing) }
     onGlobalEvent<GlobalEvent.Refresh>(
-        filter = { it.key == "user_profile" }
+        filter = { it.key == "user_profile" && lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) }
     ) {
         viewModel.send(UserLikeForumUiIntent.Refresh(uid))
     }
@@ -105,17 +110,15 @@ fun UserLikeForumPage(
         },
         errorScreen = { ErrorScreen(error = error.getOrNull()) },
     ) {
-        val pullRefreshState = rememberPullRefreshState(
+
+
+        val lazyListState = externalListState ?: rememberLazyListState()
+
+        PullToRefreshLayout(
             refreshing = isRefreshing,
-            onRefresh = ::reload
-        )
-
-        val lazyListState = rememberLazyListState()
-
-        val pullRefreshModifier =
-            if (enablePullRefresh) Modifier.pullRefresh(pullRefreshState) else Modifier
-
-        Box(modifier = pullRefreshModifier) {
+            onRefresh = ::reload,
+            enabled = enablePullRefresh,
+        ) {
             LoadMoreLayout(
                 isLoading = isLoadingMore,
                 onLoadMore = {
@@ -136,13 +139,7 @@ fun UserLikeForumPage(
                 )
             }
 
-            PullRefreshIndicator(
-                refreshing = isRefreshing,
-                state = pullRefreshState,
-                modifier = Modifier.align(Alignment.TopCenter),
-                backgroundColor = ExtendedTheme.colors.pullRefreshIndicator,
-                contentColor = ExtendedTheme.colors.primary,
-            )
+
         }
     }
 }

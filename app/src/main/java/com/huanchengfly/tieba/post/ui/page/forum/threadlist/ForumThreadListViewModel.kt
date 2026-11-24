@@ -422,10 +422,12 @@ sealed interface ForumThreadListUiEvent : UiEvent {
 
     data class Refresh(
         val isGood: Boolean,
-        val sortType: Int
+        val sortType: Int,
+        val forumId: Long? = null,
     ) : ForumThreadListUiEvent
 
     data class BackToTop(
-        val isGood: Boolean
+        val isGood: Boolean,
+        val forumId: Long? = null,
     ) : ForumThreadListUiEvent
 }

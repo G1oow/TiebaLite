@@ -1,5 +1,10 @@
 package com.huanchengfly.tieba.post.ui.widgets.compose
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,53 +17,63 @@ import androidx.compose.material3.FabPosition
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
+import com.huanchengfly.tieba.post.ui.utils.topBarInsetsHeight
 
 /**
- * 可上滑关掉的 Snackbar 宿主（M3 [SwipeToDismissBox]）。
+ * 当前页顶栏的实测高度（含状态栏底色带）。
  *
- * 只做「滑动 → 关掉当前那条」：确认状态后立即 [reset]，宿主本身不真的消失，
- * 否则后续的 Snackbar 会跟着一起被移出屏幕。
+ * 吸顶条（`stickyHeader`）用它算出「被顶栏顶下去多少」：顶栏展开时吸顶条落在顶栏下方，
+ * 收起后缩回状态栏下沿，两者随同一个 [BarsAutoHideState.hiddenFraction] 一起运动。
  */
+val LocalTopBarHeight = compositionLocalOf { 0.dp }
+
+/** 上滑关闭当前提示；新 Snackbar 使用独立的拖动状态。 */
 @Composable
 private fun SwipeToDismissSnackbarHost(hostState: SnackbarHostState) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value != SwipeToDismissBoxValue.Settled) {
-                hostState.currentSnackbarData?.dismiss()
-                true
-            } else {
-                false
-            }
-        }
-    )
-    LaunchedEffect(dismissState.currentValue) {
-        if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
-            dismissState.reset()
-        }
+    val data = hostState.currentSnackbarData
+    val density = LocalDensity.current
+    val threshold = with(density) { 32.dp.toPx() }
+    var offset by remember(data) { mutableFloatStateOf(0f) }
+    var height by remember { mutableIntStateOf(0) }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .onSizeChanged { height = it.height }
+            .graphicsLayer { translationY = offset }
+            .draggable(
+                state = rememberDraggableState { offset = (offset + it).coerceAtMost(0f) },
+                orientation = Orientation.Vertical,
+                enabled = data != null,
+                onDragStopped = { velocity ->
+                    val dismiss = offset <= -threshold || velocity < -threshold * 10f
+                    Animatable(offset).animateTo(
+                        if (dismiss) -height.toFloat() else 0f,
+                        animationSpec = tween(150),
+                    ) { offset = value }
+                    if (dismiss) data?.dismiss()
+                    offset = 0f
+                },
+            )
+    ) {
+        SnackbarHost(hostState = hostState)
     }
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = {},
-        content = { SnackbarHost(hostState = hostState) },
-    )
 }
 
 val LocalSnackbarHostState = compositionLocalOf<SnackbarHostState> { error("no scaffold here!") }
@@ -122,6 +137,7 @@ fun MyScaffold(
     var bottomBarHeightPx by remember { mutableIntStateOf(0) }
     val topBarHeight = with(density) { topBarHeightPx.toDp() }
     val bottomBarHeight = with(density) { bottomBarHeightPx.toDp() }
+    val pullRefreshOverlay = remember { PullRefreshOverlayState() }
     val innerPadding = remember(topBarHeight, bottomBarHeight) {
         PaddingValues(top = topBarHeight, bottom = bottomBarHeight)
     }
@@ -137,7 +153,11 @@ fun MyScaffold(
                 .background(backgroundColor),
         ) {
             // 正文铺满整屏：栏收起时露出的就是它。
-            CompositionLocalProvider(LocalBarsContentPadding provides mergedPadding) {
+            CompositionLocalProvider(
+                LocalBarsContentPadding provides mergedPadding,
+                LocalTopBarHeight provides topBarHeight,
+                LocalPullRefreshOverlay provides pullRefreshOverlay,
+            ) {
                 content(mergedPadding)
             }
             Box(
@@ -160,7 +180,7 @@ fun MyScaffold(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(bottom = bottomBarHeight)
+                    .padding(bottom = mergedPadding.calculateBottomPadding())
             ) {
                 snackbarHost(snackbarHostState)
             }
@@ -173,9 +193,20 @@ fun MyScaffold(
                             else -> Alignment.BottomEnd
                         }
                     )
-                    .padding(end = 16.dp, bottom = bottomBarHeight + 16.dp),
+                    .padding(end = 16.dp, bottom = mergedPadding.calculateBottomPadding() + 16.dp),
             ) {
                 floatingActionButton()
+            }
+            if (pullRefreshOverlay.indicator != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .padding(top = topBarInsetsHeight() + pullRefreshOverlay.topInset),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    pullRefreshOverlay.indicator?.invoke(this)
+                }
             }
         }
     }

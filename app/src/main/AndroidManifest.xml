@@ -45,10 +45,13 @@
         </intent>
     </queries>
 
+    <!-- 关闭预测性返回：返回由页面里的 BackHandler / MyBackHandler 处理，不需要系统侧预览动画。 -->
+    <!-- 若 Android 16 起系统忽略该开关，改动点就在这里。 -->
     <application
         android:name=".App"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
+        android:enableOnBackInvokedCallback="false"
         android:fullBackupContent="@xml/backup_descriptor"
         android:icon="@mipmap/ic_launcher_new"
         android:label="@string/app_name"

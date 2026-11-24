@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -15,15 +16,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
@@ -56,7 +54,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
@@ -71,6 +68,8 @@ import com.huanchengfly.tieba.post.arch.emitGlobalEvent
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.common.windowsizeclass.WindowWidthSizeClass.Companion.Compact
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
+import com.huanchengfly.tieba.post.ui.page.Routes
+import com.huanchengfly.tieba.post.ui.utils.topBarInsetsHeight
 import com.huanchengfly.tieba.post.utils.AccountUtil
 import com.huanchengfly.tieba.post.utils.AccountUtil.LocalAccount
 import com.huanchengfly.tieba.post.utils.StringUtil
@@ -78,6 +77,9 @@ import com.huanchengfly.tieba.post.utils.compose.calcStatusBarColor
 
 /** M3 `DropdownMenuItem` 默认左右内边距 12dp，这里保持迁移前的 16dp，菜单观感不变。 */
 private val TopBarMenuItemPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+
+/** 标题行固定高度：与 M3 `TopAppBar` 一致，顶栏不随父级松约束被撑高。 */
+private val TopBarRowHeight = 56.dp
 
 @Composable
 fun accountNavIconIfCompact(): (@Composable () -> Unit)? =
@@ -101,10 +103,17 @@ fun AccountNavIcon(
                     R.drawable.ic_launcher_new_round
                 )
             ),
-            contentDescription = null,
+            contentDescription = stringResource(id = R.string.tip_login),
             modifier = Modifier
                 .clip(CircleShape)
                 .size(size)
+                // 未登录时头像是唯一的登录入口：点它直接进登录页（此前是个纯 Image，点了没反应）。
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    onClick?.invoke() ?: navigator.navigate(Routes.LOGIN)
+                }
         )
     } else {
         val context = LocalContext.current
@@ -263,7 +272,13 @@ fun TitleCentredToolbar(
         topBar = {
             // 标题居中的自定义行：M3 的 TopAppBar 强制 56dp 高、标题槽自带 start inset，
             // 与这里「内容定高 + 整行居中」的观感不一致，所以不进 TopAppBar，只保留行布局。
-            Box(modifier = Modifier.fillMaxSize()) {
+            // 定高行：这里必须给出高度，不能用 fillMaxSize —— 顶栏在浮层里拿到的是松约束，
+            // fillMaxSize 会把标题行撑成整屏高，把整页内容挤到屏幕外（push 路由整页只剩标题的根因）。
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(TopBarRowHeight)
+            ) {
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
@@ -394,16 +409,11 @@ fun TopAppBarContainer(
     insets: Boolean = true,
     content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
-    val density = LocalDensity.current
     val barsState = LocalBarsAutoHideState.current
     val hiddenFraction = barsState?.hiddenFraction ?: 0f
-    val statusBarInset = if (insets) {
-        with(density) {
-            WindowInsets.statusBars.union(WindowInsets.displayCutout).getTop(density).toDp()
-        }
-    } else {
-        0.dp
-    }
+
+    // 状态栏底色带与吸顶页签避让共用同一份 inset（见 [topBarInsetsHeight]），避免两处各算一遍。
+    val statusBarInset = if (insets) topBarInsetsHeight() else 0.dp
     val coroutineScope = rememberCoroutineScope()
     var barHeightPx by remember { mutableIntStateOf(0) }
     // 深色 / 纯黑主题下栏底与页面底色几乎相同，整条顶栏读起来像「没渲染出来的黑边」。

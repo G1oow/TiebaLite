@@ -87,26 +87,28 @@ fun LoadMoreLayout(
             onBufferOverflow = BufferOverflow.DROP_LATEST
         )
     }
+    val canLoadMore = remember(enableLoadMore, loadEnd) { enableLoadMore && !loadEnd }
+    val curIsEmpty by rememberUpdatedState(newValue = isEmpty)
+    val curIsLoading by rememberUpdatedState(newValue = isLoading)
+    val curCanLoadMore by rememberUpdatedState(newValue = canLoadMore)
+    val curPreloadCount by rememberUpdatedState(newValue = preloadCount)
+
     val coroutineScope = rememberCoroutineScope()
     DisposableEffect(Unit) {
         val job = coroutineScope.launch {
             loadMoreFlow
                 .sample(500)
                 .collect {
-                    curOnLoadMore()
-                    waitingStateReset = true
-                    lastTriggerTime = it
+                    if (!curIsLoading && curCanLoadMore) {
+                        curOnLoadMore()
+                        waitingStateReset = true
+                        lastTriggerTime = it
+                    }
                 }
         }
 
         onDispose { job.cancel() }
     }
-
-    val canLoadMore = remember(enableLoadMore, loadEnd) { enableLoadMore && !loadEnd }
-    val curIsEmpty by rememberUpdatedState(newValue = isEmpty)
-    val curIsLoading by rememberUpdatedState(newValue = isLoading)
-    val curCanLoadMore by rememberUpdatedState(newValue = canLoadMore)
-    val curPreloadCount by rememberUpdatedState(newValue = preloadCount)
 
     // 处理列表滚动到底部时自动加载更多
     val curLazyListState by rememberUpdatedState(newValue = lazyListState)

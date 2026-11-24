@@ -89,6 +89,7 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.LongClickMenu
 import com.huanchengfly.tieba.post.ui.widgets.compose.MenuState
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyVerticalGrid
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
+import com.huanchengfly.tieba.post.ui.widgets.compose.PullToRefreshLayout
 import com.huanchengfly.tieba.post.ui.widgets.compose.TextButton
 import com.huanchengfly.tieba.post.ui.widgets.compose.TipScreen
 import com.huanchengfly.tieba.post.ui.widgets.compose.Toolbar
@@ -469,25 +470,21 @@ fun HomePage(
                         listSingle = !listSingle
                     }
                 }
-            )
-        },
-        modifier = Modifier.fillMaxSize(),
-    ) { contentPaddings ->
-        val pullRefreshState = rememberPullRefreshState(
-            refreshing = isLoading,
-            onRefresh = { viewModel.send(HomeUiIntent.Refresh) }
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .pullRefresh(pullRefreshState)
-        ) {
-            // 页面铺满整屏；只有这个不滚动的头部要避让顶栏，列表本身靠 contentPadding
-            // 避让（见 MyLazyColumn），这样滚动内容才能进入栏所在的区域。
-            Column(modifier = Modifier.padding(top = contentPaddings.calculateTopPadding())) {
+            ) {
                 SearchBox(modifier = Modifier.padding(bottom = 4.dp)) {
                     navigator.navigate("search")
                 }
+            }
+        },
+        modifier = Modifier.fillMaxSize(),
+    ) { _ ->
+        Box(modifier = Modifier.fillMaxSize()) {
+            // 下拉刷新也走 MyScaffold 的 overlay：提示画在顶栏之上，不会被栏遮住。
+            PullToRefreshLayout(
+                refreshing = isLoading,
+                onRefresh = { viewModel.send(HomeUiIntent.Refresh) },
+            ) {
+            Column {
                 StateScreen(
                     isEmpty = isEmpty,
                     isError = isError,
@@ -670,14 +667,7 @@ fun HomePage(
                     }
                 }
             }
-
-            PullRefreshIndicator(
-                refreshing = isLoading,
-                state = pullRefreshState,
-                modifier = Modifier.align(Alignment.TopCenter),
-                backgroundColor = ExtendedTheme.colors.pullRefreshIndicator,
-                contentColor = ExtendedTheme.colors.primary,
-            )
+            }
         }
     }
 }

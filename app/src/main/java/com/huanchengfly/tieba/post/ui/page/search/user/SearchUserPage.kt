@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.MaterialTheme
@@ -36,6 +37,7 @@ import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.common.theme.compose.pullRefreshIndicator
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
 import com.huanchengfly.tieba.post.ui.page.search.SearchUiEvent
+import com.huanchengfly.tieba.post.ui.widgets.compose.myStickyHeader
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.Chip
 import com.huanchengfly.tieba.post.ui.widgets.compose.ErrorScreen
@@ -127,9 +129,10 @@ fun SearchUserPage(
                 .fillMaxSize()
                 .pullRefresh(pullRefreshState)
         ) {
-            MyLazyColumn(modifier = Modifier.fillMaxSize()) {
+            val lazyListState = rememberLazyListState()
+            MyLazyColumn(state = lazyListState, modifier = Modifier.fillMaxSize()) {
                 if (showExactMatchResult) {
-                    stickyHeader(key = "ExactMatchHeader") {
+                    myStickyHeader(state = lazyListState, key = "ExactMatchHeader") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -157,7 +160,7 @@ fun SearchUserPage(
                     }
                 }
                 if (showFuzzyMatchResult) {
-                    stickyHeader(key = "FuzzyMatchHeader") {
+                    myStickyHeader(state = lazyListState, key = "FuzzyMatchHeader") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()

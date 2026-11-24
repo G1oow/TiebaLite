@@ -116,15 +116,10 @@ fun EditTextPref(
         textColor = textColor,
         enabled = enabled,
         leadingIcon = leadingIcon,
-        onClick = { if (enabled) dialogState.show() },
+        onClick = { if (enabled) { textVal = value; dialogState.show() } },
     )
 
     if (dialogState.show) {
-        //reset
-        LaunchedEffect(null) {
-            textVal = value
-        }
-
         PromptDialog(
             onConfirm = {
                 textVal = it
