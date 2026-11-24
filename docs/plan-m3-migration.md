@@ -37,7 +37,7 @@ M2 存量热点（按文件数，`import` 计数）：
 | `Text` | 73 | 机械替换；文字样式改名见阶段 1 的映射表 |
 | `MaterialTheme` | 66 | 主要是读 `typography` / `colors`，需逐处映射到 M3 名字空间 |
 | `Icon` | 34 | 机械替换（`material.icons.*` 不受影响，M2/M3 共用） |
-| `pullrefresh.*` | 16 | 主战场，见阶段 3 的统一封装 |
+| `pullrefresh.*` | **0** | 阶段 3a 已统一为 `ui/widgets/compose/PullToRefresh.kt` 的 `PullRefresh`（M3 `PullToRefreshBox`），17 个调用点全部迁完 |
 | `IconButton` | 14 | 机械替换 |
 | `ProvideTextStyle` / `LocalContentColor` | 12 / 12 | M3 有对应物；`LocalContentAlpha` 系列 M3 已移除，改显式 alpha |
 | `Surface` | 10 | 注意 `tonalElevation` 会染色，已有 `surfaceTint = Transparent` 兜底 |
@@ -123,9 +123,17 @@ M2 存量热点（按文件数，`import` 计数）：
 
 ### 阶段 3 — 主界面 + 下拉刷新统一
 
-1. 先在 `ui/widgets/compose` 落一个统一的 `PullRefresh` 包装（M3 `PullToRefreshBox`），**一次封装、逐页替换**，不要 16 个页面各写一套。
-2. `NavigationComponents.kt`：M2 `NavigationRail` / `NavigationRailItem` / `BottomNavigationItem` → M3 `NavigationRail` / `NavigationBar`；大屏导航形态仍由 `MainPage` 统一决定（AGENTS.md §4-4）。
-3. 覆盖 `HomePage` / `UserPage` / `NotificationsPage` / `ExplorePage` / `PersonalizedPage` / `HotPage` / `ConcernPage`。
+**3a 下拉刷新统一（已完成）**
+
+1. `ui/widgets/compose/PullToRefresh.kt` 的 `PullRefresh` 封装 M3 `PullToRefreshBox`，**一次封装、逐页替换**；已替换 17 个调用点（首页 / 吧页 / 用户资料页 + 推荐 / 关注 / 热榜 / 话题榜 / 通知 / 我的 / 搜索三页 / 帖子 / 收藏 / 吧内搜索 / 用户赞吧 / 用户发贴）。
+2. 指示器位置由封装统一计算：偏移取 `LocalBarsContentPadding` 的 top（= `MyScaffold` 实测顶栏完整高度），因此落在栏下沿；`maxDistance` 固定为指示器容器直径 40dp，避免栏下多空一截。
+3. 删掉旧的 `PullToRefreshLayout` 自绘实现、`PullRefreshOverlayState` / `LocalPullRefreshOverlay` 与 `MyScaffold` 里的 overlay 绘制；`Scaffold.kt` 不再参与下拉刷新。
+4. 回归证据（emulator-5560，1080×2400 @420dpi）：推荐页下拉时帧间差仅指示器区域 `[486,382]-[594,492]`（动态栏底 336px）；热榜 `[484,394]-[592,498]`（同栏底）；首页 `[486,256]-[594,362]`（首页栏底 210px）；消息 / 我的 / 吧页下拉均有反馈；改动前推荐页与热榜页下拉全程截图 MD5 不变（零反馈）。
+
+**3b 主界面导航（待办）**
+
+1. `NavigationComponents.kt`：M2 `NavigationRail` / `NavigationRailItem` / `BottomNavigationItem` → M3 `NavigationRail` / `NavigationBar`；大屏导航形态仍由 `MainPage` 统一决定（AGENTS.md §4-4）。
+2. `ExplorePage` 次级槽已加「只看已关注的吧」开关（推荐页签右侧 `IconButton`，选中态用 `primary` 着色），顶栏其余部分仍走 `Toolbar` 的 M2 页签，随阶段 2c 一起迁。
 
 观感变化已获授权（D6）：指示器由 M2 圆形下拉变为 M3 容器形变样式。
 
@@ -182,7 +190,8 @@ M2 存量热点（按文件数，`import` 计数）：
 - [ ] 阶段 2c — `Tabs.kt`
 - [ ] 阶段 2d — `Dialogs` / `Texts` / `Buttons` / `FeedCard`
 - [ ] 阶段 2e — 其它 M2 小件
-- [ ] 阶段 3 — 主界面 + 下拉刷新统一
+- [x] 阶段 3a — 下拉刷新统一（`PullRefresh` + M3 `PullToRefreshBox`，17 个调用点；下拉指示器移入栏下沿）
+- [ ] 阶段 3b — 主界面导航 M2 → M3
 - [ ] 阶段 4 — 帖子页 / 吧页
 - [ ] 阶段 5 — 设置类
 - [ ] 阶段 6 — 依赖收尾
