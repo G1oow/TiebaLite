@@ -105,10 +105,15 @@ fun TimePickerPerf(
         textColor = textColor,
         enabled = enabled,
         leadingIcon = leadingIcon,
-        onClick = { if (enabled) { timeVal = value; dialogState.show() } },
+        onClick = { if (enabled) dialogState.show() },
     )
 
     if (dialogState.show) {
+        //reset
+        LaunchedEffect(null) {
+            timeVal = value
+        }
+
         TimePickerDialog(
             title = {
                 if (dialogTitle != null) {

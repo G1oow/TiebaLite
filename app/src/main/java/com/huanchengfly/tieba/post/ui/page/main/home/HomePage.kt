@@ -470,21 +470,23 @@ fun HomePage(
                         listSingle = !listSingle
                     }
                 }
-            ) {
-                SearchBox(modifier = Modifier.padding(bottom = 4.dp)) {
-                    navigator.navigate("search")
-                }
-            }
+            )
         },
         modifier = Modifier.fillMaxSize(),
-    ) { _ ->
+    ) { contentPaddings ->
         Box(modifier = Modifier.fillMaxSize()) {
             // 下拉刷新也走 MyScaffold 的 overlay：提示画在顶栏之上，不会被栏遮住。
             PullToRefreshLayout(
                 refreshing = isLoading,
                 onRefresh = { viewModel.send(HomeUiIntent.Refresh) },
             ) {
-            Column {
+            // 页面铺满整屏；这个不滚动的头部把内容整体推到顶栏下方，所以列表自己**不再**避让
+            // 顶栏（avoidTopBar = false）——否则头部与首项之间会多出一整条栏高的空档。
+            // 列表仍靠 contentPadding 避让底部胶囊，滚动内容才能进入栏所在的区域。
+            Column(modifier = Modifier.padding(top = contentPaddings.calculateTopPadding())) {
+                SearchBox(modifier = Modifier.padding(bottom = 4.dp)) {
+                    navigator.navigate("search")
+                }
                 StateScreen(
                     isEmpty = isEmpty,
                     isError = isError,
@@ -512,6 +514,7 @@ fun HomePage(
                     MyLazyVerticalGrid(
                         columns = gridCells,
                         contentPadding = PaddingValues(bottom = 12.dp),
+                        avoidTopBar = false,
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         if (showHistoryForum) {

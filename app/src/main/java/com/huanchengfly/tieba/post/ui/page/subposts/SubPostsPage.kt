@@ -60,7 +60,7 @@ import com.huanchengfly.tieba.post.ui.page.thread.PostAgreeBtn
 import com.huanchengfly.tieba.post.ui.page.thread.PostCard
 import com.huanchengfly.tieba.post.ui.page.thread.UserNameText
 import com.huanchengfly.tieba.post.ui.utils.bottomBarInsetsPadding
-import com.huanchengfly.tieba.post.ui.widgets.compose.myStickyHeader
+import com.huanchengfly.tieba.post.ui.widgets.compose.stickyHeaderTopInset
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.BlockTip
 import com.huanchengfly.tieba.post.ui.widgets.compose.BlockableContent
@@ -438,11 +438,12 @@ internal fun SubPostsContent(
                             }
                         }
                     }
-                    myStickyHeader(state = lazyListState, key = "SubPostsHeader") {
+                    stickyHeader(key = "SubPostsHeader") {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(ExtendedTheme.colors.background)
+                                .padding(top = stickyHeaderTopInset())
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Text(

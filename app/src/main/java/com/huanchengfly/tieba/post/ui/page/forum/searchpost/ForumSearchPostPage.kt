@@ -64,7 +64,7 @@ import com.huanchengfly.tieba.post.models.database.SearchPostHistory
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.common.theme.compose.pullRefreshIndicator
 import com.huanchengfly.tieba.post.ui.page.ProvideNavigator
-import com.huanchengfly.tieba.post.ui.widgets.compose.myStickyHeader
+import com.huanchengfly.tieba.post.ui.widgets.compose.stickyHeaderTopInset
 import com.huanchengfly.tieba.post.ui.widgets.compose.Button
 import com.huanchengfly.tieba.post.ui.widgets.compose.ClickMenu
 import com.huanchengfly.tieba.post.ui.widgets.compose.ErrorScreen
@@ -360,6 +360,7 @@ fun ForumSearchPostPage(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(paddingValues)
         ) {
             ProvideNavigator(navigator = navigator) {
                 if (!isKeywordEmpty) {
@@ -424,11 +425,12 @@ fun ForumSearchPostPage(
                                     hideForum = true,
                                     searchKeyword = currentKeyword,
                                 ) {
-                                    myStickyHeader(state = lazyListState, key = "Sort&Filter") {
+                                    stickyHeader(key = "Sort&Filter") {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             modifier = Modifier
                                                 .background(ExtendedTheme.colors.background)
+                                                .padding(top = stickyHeaderTopInset())
                                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                                                 .clickable(
                                                     interactionSource = remember { MutableInteractionSource() },

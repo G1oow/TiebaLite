@@ -128,7 +128,7 @@ import com.huanchengfly.tieba.post.ui.common.theme.compose.threadBottomBar
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
 import com.huanchengfly.tieba.post.ui.page.ProvideNavigator
 import com.huanchengfly.tieba.post.ui.utils.bottomBarInsetsPadding
-import com.huanchengfly.tieba.post.ui.widgets.compose.myStickyHeader
+import com.huanchengfly.tieba.post.ui.widgets.compose.stickyHeaderTopInset
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.BackNavigationIcon
 import com.huanchengfly.tieba.post.ui.widgets.compose.BlockTip
@@ -1343,7 +1343,7 @@ fun ThreadPage(
                                         }
                                     }
                                 }
-                                myStickyHeader(state = lazyListState, key = "ThreadHeader") {
+                                stickyHeader(key = "ThreadHeader") {
                                     // 整块底色（含状态栏高度那一段）：否则滚动内容会从页签上方漏出来，
                                     // 看着像「一根杆子杵在页面中间」。外层 Box 负责铺满整宽，内层 Container 收窄正文。
                                     Box(
@@ -1354,6 +1354,7 @@ fun ThreadPage(
                                     Container {
                                         Row(
                                             modifier = Modifier
+                                                .padding(top = stickyHeaderTopInset())
                                                 .padding(8.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {

@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.MaterialTheme
@@ -37,7 +36,7 @@ import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.common.theme.compose.pullRefreshIndicator
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
 import com.huanchengfly.tieba.post.ui.page.search.SearchUiEvent
-import com.huanchengfly.tieba.post.ui.widgets.compose.myStickyHeader
+import com.huanchengfly.tieba.post.ui.widgets.compose.stickyHeaderTopInset
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.Chip
 import com.huanchengfly.tieba.post.ui.widgets.compose.ErrorScreen
@@ -129,14 +128,14 @@ fun SearchUserPage(
                 .fillMaxSize()
                 .pullRefresh(pullRefreshState)
         ) {
-            val lazyListState = rememberLazyListState()
-            MyLazyColumn(state = lazyListState, modifier = Modifier.fillMaxSize()) {
+            MyLazyColumn(modifier = Modifier.fillMaxSize()) {
                 if (showExactMatchResult) {
-                    myStickyHeader(state = lazyListState, key = "ExactMatchHeader") {
+                    stickyHeader(key = "ExactMatchHeader") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(ExtendedTheme.colors.background)
+                                .padding(top = stickyHeaderTopInset())
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Chip(
@@ -160,11 +159,12 @@ fun SearchUserPage(
                     }
                 }
                 if (showFuzzyMatchResult) {
-                    myStickyHeader(state = lazyListState, key = "FuzzyMatchHeader") {
+                    stickyHeader(key = "FuzzyMatchHeader") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(ExtendedTheme.colors.background)
+                                .padding(top = stickyHeaderTopInset())
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Chip(

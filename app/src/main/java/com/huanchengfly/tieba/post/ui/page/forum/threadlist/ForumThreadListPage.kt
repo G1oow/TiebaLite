@@ -62,9 +62,6 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
 import com.huanchengfly.tieba.post.ui.widgets.compose.VerticalDivider
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import androidx.compose.runtime.SideEffect
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 
 private fun getFirstLoadIntent(
     context: Context,
@@ -170,7 +167,6 @@ private fun ThreadList(
     forumRuleTitle: String? = null,
     onOpenForumRule: (() -> Unit)? = null,
     onOriginThreadClicked: (OriginThreadInfo) -> Unit = {},
-    avoidTopBar: Boolean = false,
     onUserClicked: (User) -> Unit = {},
 ) {
     MyLazyColumn(
@@ -179,7 +175,7 @@ private fun ThreadList(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = WindowInsets.navigationBars.asPaddingValues(),
         // 页头 + 页签已经把列表推下来了，列表自己再避让一次顶栏就会在页签下方留一大块空白。
-        avoidTopBar = avoidTopBar,
+        avoidTopBar = false,
     ) {
         if (!forumRuleTitle.isNullOrEmpty()) {
             item(key = "ForumRule") {
@@ -257,33 +253,25 @@ fun ForumThreadListPage(
     forumId: Long,
     forumName: String,
     isGood: Boolean = false,
-    viewModel: ForumThreadListViewModel = if (isGood) pageViewModel<GoodThreadListViewModel>() else pageViewModel<LatestThreadListViewModel>(),
-    lazyListState: LazyListState = rememberLazyListState(),
-    avoidTopBar: Boolean = false,
-    onRefreshingChange: (Boolean) -> Unit = {},
+    viewModel: ForumThreadListViewModel = if (isGood) pageViewModel<GoodThreadListViewModel>() else pageViewModel<LatestThreadListViewModel>()
 ) {
     val context = LocalContext.current
     val navigator = LocalNavigator.current
     val snackbarHostState = LocalSnackbarHostState.current
 
+    val lazyListState = rememberLazyListState()
+
     LazyLoad(loaded = viewModel.initialized) {
         viewModel.send(getFirstLoadIntent(context, forumName, isGood))
         viewModel.initialized = true
     }
-    val lifecycleOwner = LocalLifecycleOwner.current
     onGlobalEvent<ForumThreadListUiEvent.Refresh>(
-        filter = {
-            it.isGood == isGood && (it.forumId == null || it.forumId == forumId) &&
-                lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
-        },
+        filter = { it.isGood == isGood },
     ) {
         viewModel.send(getRefreshIntent(context, forumName, isGood, it.sortType))
     }
     onGlobalEvent<ForumThreadListUiEvent.BackToTop>(
-        filter = {
-            it.isGood == isGood && (it.forumId == null || it.forumId == forumId) &&
-                lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
-        },
+        filter = { it.isGood == isGood },
     ) {
         lazyListState.animateScrollToItem(0)
     }
@@ -343,7 +331,6 @@ fun ForumThreadListPage(
         prop1 = ForumThreadListUiState::goodClassifies,
         initial = persistentListOf()
     )
-    SideEffect { onRefreshingChange(isRefreshing) }
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -388,7 +375,6 @@ fun ForumThreadListPage(
             ) {
                 ThreadList(
                     state = lazyListState,
-                avoidTopBar = avoidTopBar,
                     items = threadList,
                     onItemClicked = {
                         navigator.navigate("thread/${it.threadId}")

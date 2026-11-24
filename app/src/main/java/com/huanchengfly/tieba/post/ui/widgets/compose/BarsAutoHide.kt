@@ -22,8 +22,6 @@ import com.huanchengfly.tieba.post.ui.utils.topBarInsetsHeight
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.abs
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 
 /**
  * 顶栏 / 底栏「跟随滑动自动隐藏」的共享状态。
@@ -156,16 +154,3 @@ fun stickyHeaderTopInset(): Dp {
     return statusBar + barVisible
 }
 
-
-/** 业务页头跟随栏的绘制位置，完整高度始终留在布局中。 */
-@Composable
-fun Modifier.topBarAwareOffset(extraOffsetY: () -> Float): Modifier {
-    val density = LocalDensity.current
-    val topBarPx = with(density) { LocalTopBarHeight.current.toPx() }
-    val safeTopPx = with(density) { topBarInsetsHeight().toPx() }
-    val barsState = LocalBarsAutoHideState.current
-    return graphicsLayer {
-        translationY = safeTopPx + (topBarPx - safeTopPx).coerceAtLeast(0f) *
-            (1f - (barsState?.hiddenFraction ?: 0f)) + extraOffsetY()
-    }
-}

@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -65,6 +66,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -109,11 +113,7 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.FeedCardPlaceholder
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
 import com.huanchengfly.tieba.post.ui.widgets.compose.MenuScope
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.CompositionLocalProvider
-import com.huanchengfly.tieba.post.ui.widgets.compose.LocalBarsContentPadding
-import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoadHorizontalPager
-import com.huanchengfly.tieba.post.ui.widgets.compose.topBarAwareOffset
+import com.huanchengfly.tieba.post.ui.widgets.compose.stickyHeaderTopInset
 
 import com.huanchengfly.tieba.post.ui.widgets.compose.PagerTabIndicator
 import com.huanchengfly.tieba.post.ui.widgets.compose.PullToRefreshLayout
@@ -140,7 +140,6 @@ import kotlinx.serialization.json.Json
 import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.min
-import androidx.compose.foundation.background
 
 
 private val LoadDistance = 70.dp
@@ -447,7 +446,7 @@ fun ForumPage(
 
     val density = LocalDensity.current
 
-    val threadListStates = listOf(rememberLazyListState(), rememberLazyListState())
+    var heightOffset by rememberSaveable { mutableFloatStateOf(0f) }
     var headerHeight by rememberSaveable {
         mutableFloatStateOf(
             with(density) {
@@ -456,14 +455,6 @@ fun ForumPage(
         )
     }
 
-    val heightOffset by remember {
-        derivedStateOf {
-            val state = threadListStates[currentPage]
-            if (state.firstVisibleItemIndex == 0)
-                -min(state.firstVisibleItemScrollOffset.toFloat(), headerHeight)
-            else -headerHeight
-        }
-    }
     val isShowTopBarArea by remember {
         derivedStateOf {
             heightOffset.absoluteValue < headerHeight
@@ -599,8 +590,7 @@ fun ForumPage(
                                         coroutineScope.launch {
                                             emitGlobalEventSuspend(
                                                 ForumThreadListUiEvent.BackToTop(
-                                                    currentPage == 1,
-                                                    forumId = forumInfo?.get { id },
+                                                    currentPage == 1
                                                 )
                                             )
                                             emitGlobalEventSuspend(
@@ -609,8 +599,7 @@ fun ForumPage(
                                                     getSortType(
                                                         context,
                                                         forumName
-                                                    ),
-                                                    forumId = forumInfo?.get { id },
+                                                    )
                                                 )
                                             )
                                         }
@@ -620,8 +609,7 @@ fun ForumPage(
                                         coroutineScope.launch {
                                             emitGlobalEvent(
                                                 ForumThreadListUiEvent.BackToTop(
-                                                    currentPage == 1,
-                                                    forumId = forumInfo?.get { id },
+                                                    currentPage == 1
                                                 )
                                             )
                                         }
@@ -648,10 +636,17 @@ fun ForumPage(
                     }
                 }
             ) { contentPadding ->
-                var isRefreshing by remember { mutableStateOf(false) }
-                var tabHeightPx by remember { mutableIntStateOf(0) }
+                var isFakeLoading by remember { mutableStateOf(false) }
+
+                LaunchedEffect(isFakeLoading) {
+                    if (isFakeLoading) {
+                        delay(1000)
+                        isFakeLoading = false
+                    }
+                }
+
                 PullToRefreshLayout(
-                    refreshing = isRefreshing,
+                    refreshing = isFakeLoading,
                     onRefresh = {
                         coroutineScope.emitGlobalEvent(
                             ForumThreadListUiEvent.Refresh(
@@ -659,52 +654,68 @@ fun ForumPage(
                                 getSortType(
                                     context,
                                     forumName
-                                ),
-                                forumId = forumInfo?.get { id },
+                                )
                             )
                         )
+                        isFakeLoading = true
                     }
                 ) {
+                    val headerNestedScrollConnection = remember {
+                        object : NestedScrollConnection {
+                            override fun onPreScroll(
+                                available: Offset,
+                                source: NestedScrollSource,
+                            ): Offset {
+                                if (available.y < 0) {
+                                    val prevHeightOffset = heightOffset
+                                    heightOffset = max(heightOffset + available.y, -headerHeight)
+                                    if (prevHeightOffset != heightOffset) {
+                                        return available.copy(x = 0f)
+                                    }
+                                }
+
+                                return Offset.Zero
+                            }
+
+                            override fun onPostScroll(
+                                consumed: Offset,
+                                available: Offset,
+                                source: NestedScrollSource,
+                            ): Offset {
+                                if (available.y > 0f) {
+                                    // Adjust the height offset in case the consumed delta Y is less than what was
+                                    // recorded as available delta Y in the pre-scroll.
+                                    val prevHeightOffset = heightOffset
+                                    heightOffset = min(heightOffset + available.y, 0f)
+                                    if (prevHeightOffset != heightOffset) {
+                                        return available.copy(x = 0f)
+                                    }
+                                }
+
+                                return Offset.Zero
+                            }
+                        }
+                    }
+
+                    // 顶部留白跟随顶栏：顶栏收起时整块页头（含「最新 / 精华」）随之上移贴住状态栏，
+                    // 顶栏回来时再被顶下去——与 stickyHeader 用同一份 inset 规则。
                     val layoutDirection = LocalLayoutDirection.current
-                    val extraTop = with(density) { headerHeight.toDp() + tabHeightPx.toDp() }
-                    val listPadding = PaddingValues(
+                    val followingPadding = PaddingValues(
                         start = contentPadding.calculateStartPadding(layoutDirection),
-                        top = contentPadding.calculateTopPadding() + extraTop,
+                        top = stickyHeaderTopInset(),
                         end = contentPadding.calculateEndPadding(layoutDirection),
                         bottom = contentPadding.calculateBottomPadding(),
                     )
-                    Box(Modifier.fillMaxSize()) {
-                        CompositionLocalProvider(LocalBarsContentPadding provides listPadding) {
-                            if (forumInfo != null) {
-                                LazyLoadHorizontalPager(
-                                    state = pagerState,
-                                    modifier = Modifier.fillMaxSize(),
-                                    key = { it },
-                                    verticalAlignment = Alignment.Top,
-                                    userScrollEnabled = true,
-                                ) { page ->
-                                    ForumThreadListPage(
-                                        forumId = forumInfo!!.get { id },
-                                        forumName = forumInfo!!.get { name },
-                                        isGood = page == 1,
-                                        lazyListState = threadListStates[page],
-                                        avoidTopBar = true,
-                                        onRefreshingChange = { refreshing ->
-                                            if (pagerState.currentPage == page) isRefreshing = refreshing
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                        Column(
-                            Modifier.fillMaxWidth()
-                                .topBarAwareOffset { heightOffset }
-                                .background(ExtendedTheme.colors.background)
-                        ) {
+                    Box(
+                        modifier = Modifier
+                            .padding(followingPadding)
+                            .nestedScroll(headerNestedScrollConnection)
+                    ) {
+                        Column {
                             val containerHeight by remember {
                                 derivedStateOf {
                                     with(density) {
-                                        headerHeight.toDp()
+                                        (headerHeight + heightOffset).toDp()
                                     }
                                 }
                             }
@@ -759,7 +770,6 @@ fun ForumPage(
                                 }
                             }
 
-                            Box(Modifier.onSizeChanged { tabHeightPx = it.height }) {
                             val tabTextStyle = MaterialTheme.typography.button.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
@@ -780,7 +790,7 @@ fun ForumPage(
                                 edgePadding = 0.dp,
                                 modifier = Modifier
                                     .wrapContentWidth(align = Alignment.Start)
-                                    .align(Alignment.TopStart)
+                                    .align(Alignment.Start)
                             ) {
                                 var currentSortType by remember {
                                     mutableIntStateOf(
@@ -819,8 +829,7 @@ fun ForumPage(
                                                         emitGlobalEvent(
                                                             ForumThreadListUiEvent.Refresh(
                                                                 currentPage == 1,
-                                                                value,
-                                                                forumId = forumInfo?.get { id },
+                                                                value
                                                             )
                                                         )
                                                     }
@@ -856,6 +865,20 @@ fun ForumPage(
                                 }
                             }
 
+                            if (forumInfo != null) {
+                                HorizontalPager(
+                                    state = pagerState,
+                                    modifier = Modifier.fillMaxSize(),
+                                    key = { it },
+                                    verticalAlignment = Alignment.Top,
+                                    userScrollEnabled = true,
+                                ) {
+                                    ForumThreadListPage(
+                                        forumId = forumInfo!!.get { id },
+                                        forumName = forumInfo!!.get { name },
+                                        isGood = it == 1,
+                                    )
+                                }
                             }
                         }
                     }

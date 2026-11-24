@@ -36,7 +36,7 @@ import com.huanchengfly.tieba.post.models.database.History
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
 import com.huanchengfly.tieba.post.ui.page.thread.ThreadPageFrom
-import com.huanchengfly.tieba.post.ui.widgets.compose.myStickyHeader
+import com.huanchengfly.tieba.post.ui.widgets.compose.stickyHeaderTopInset
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.Chip
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
@@ -117,11 +117,12 @@ fun HistoryListPage(
                 state = lazyListState
             ) {
                 if (todayHistoryData.isNotEmpty()) {
-                    myStickyHeader(state = lazyListState, key = "TodayHistoryHeader") {
+                    stickyHeader(key = "TodayHistoryHeader") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(ExtendedTheme.colors.background)
+                                .padding(top = stickyHeaderTopInset())
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Chip(
@@ -156,11 +157,12 @@ fun HistoryListPage(
                     }
                 }
                 if (beforeHistoryData.isNotEmpty()) {
-                    myStickyHeader(state = lazyListState, key = "BeforeHistoryHeader") {
+                    stickyHeader(key = "BeforeHistoryHeader") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(ExtendedTheme.colors.background)
+                                .padding(top = stickyHeaderTopInset())
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Chip(text = stringResource(id = R.string.title_history_before))
