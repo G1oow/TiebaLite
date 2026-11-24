@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.safeGestures
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -44,6 +45,21 @@ fun bottomBarInsetsHeight(): Dp {
     } else {
         FallbackGestureHotspotHeight
     }
+}
+
+/**
+ * 取顶部安全区高度：statusBars ∪ displayCutout，与顶栏内「状态栏底色带」用同一份 inset。
+ *
+ * 栏是 overlay、正文铺满整屏（见 AGENTS.md §5.3），所以吸顶（`stickyHeader`）页签粘的是
+ * 列表视口顶边 y=0——既不吃 `contentPadding` 的栏高占位，也不吃系统 inset。
+ * 这类「贴在视口顶边但仍需留在系统栏下方」的内容统一用本值避让。
+ */
+@Composable
+fun topBarInsetsHeight(): Dp {
+    // 并入 displayCutout：横屏 / 挖孔机型的状态栏高度可能小于刘海实际占位。
+    val insets = WindowInsets.statusBars.union(WindowInsets.displayCutout)
+    val density = LocalDensity.current
+    return with(density) { insets.getTop(density).toDp() }
 }
 
 /**

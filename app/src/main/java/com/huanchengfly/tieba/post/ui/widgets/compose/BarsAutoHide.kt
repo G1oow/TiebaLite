@@ -13,10 +13,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import com.huanchengfly.tieba.post.rememberPreferenceAsState
+import com.huanchengfly.tieba.post.ui.utils.topBarInsetsHeight
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -134,5 +136,21 @@ fun rememberBarsAutoHideState(): BarsAutoHideState {
             this.enabled = enabled
         }
     }
+}
+
+/**
+ * 吸顶条（`stickyHeader`）顶部要空出的高度：状态栏 + 当前页顶栏**当前可见的部分**。
+ *
+ * 顶栏跟随滚动收起 / 展开时这个值跟着 [BarsAutoHideState.hiddenFraction] 变：展开时吸顶条被
+ * 顶栏顶到它下方，收起后缩回状态栏下沿——两者用同一条动画一起运动，而不是顶栏直接盖住吸顶条。
+ * 吸顶条自己要把这段高度涂上底色（背景写在 padding 之前），否则滚动内容会从上面漏出来。
+ */
+@Composable
+fun stickyHeaderTopInset(): Dp {
+    val hiddenFraction = LocalBarsAutoHideState.current?.hiddenFraction ?: 0f
+    val statusBar = topBarInsetsHeight()
+    val barHeight = LocalTopBarHeight.current
+    val barVisible = (barHeight - statusBar).coerceAtLeast(0.dp) * (1f - hiddenFraction)
+    return statusBar + barVisible
 }
 

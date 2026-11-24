@@ -3,6 +3,7 @@ package com.huanchengfly.tieba.post.ui.page.history.list
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,11 +15,16 @@ import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.rememberLottieComposition
 import com.huanchengfly.tieba.post.R
 import com.huanchengfly.tieba.post.arch.collectPartialAsState
 import com.huanchengfly.tieba.post.arch.onEvent
@@ -30,6 +36,7 @@ import com.huanchengfly.tieba.post.models.database.History
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
 import com.huanchengfly.tieba.post.ui.page.thread.ThreadPageFrom
+import com.huanchengfly.tieba.post.ui.widgets.compose.stickyHeaderTopInset
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.Chip
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
@@ -38,6 +45,7 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.LocalSnackbarHostState
 import com.huanchengfly.tieba.post.ui.widgets.compose.LongClickMenu
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
+import com.huanchengfly.tieba.post.ui.widgets.compose.TipScreen
 import com.huanchengfly.tieba.post.ui.widgets.compose.UserHeader
 import com.huanchengfly.tieba.post.ui.widgets.compose.rememberMenuState
 import com.huanchengfly.tieba.post.utils.DateTimeUtils
@@ -114,6 +122,7 @@ fun HistoryListPage(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(ExtendedTheme.colors.background)
+                                .padding(top = stickyHeaderTopInset())
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Chip(
@@ -153,6 +162,7 @@ fun HistoryListPage(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(ExtendedTheme.colors.background)
+                                .padding(top = stickyHeaderTopInset())
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Chip(text = stringResource(id = R.string.title_history_before))
@@ -183,6 +193,34 @@ fun HistoryListPage(
                         )
                     }
                 }
+            }
+        }
+        // 空态兜底：数据层返回 0 条时列表什么都不渲染，整页看起来就是空白（台账「已知问题」）。
+        // 用 !hasMore 当「Refresh 已落过至少一次」的判据——初始 hasMore = true，首次 Refresh 会按
+        // 实际条数写回，所以加载过程中不会闪一下占位。
+        if (todayHistoryData.isEmpty() && beforeHistoryData.isEmpty() && !hasMore && !isLoadingMore) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                TipScreen(
+                    title = { Text(text = stringResource(id = R.string.title_no_history)) },
+                    message = { Text(text = stringResource(id = R.string.summary_no_history)) },
+                    image = {
+                        val composition by rememberLottieComposition(
+                            LottieCompositionSpec.RawRes(R.raw.lottie_empty_box)
+                        )
+                        LottieAnimation(
+                            composition = composition,
+                            iterations = LottieConstants.IterateForever,
+                            modifier = Modifier
+                                .padding(vertical = 16.dp)
+                                .fillMaxWidth()
+                                .aspectRatio(2.5f)
+                        )
+                    },
+                    scrollable = false,
+                )
             }
         }
     }

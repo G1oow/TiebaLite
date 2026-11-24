@@ -173,7 +173,9 @@ private fun ThreadList(
         state = state,
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth(),
-        contentPadding = WindowInsets.navigationBars.asPaddingValues()
+        contentPadding = WindowInsets.navigationBars.asPaddingValues(),
+        // 页头 + 页签已经把列表推下来了，列表自己再避让一次顶栏就会在页签下方留一大块空白。
+        avoidTopBar = false,
     ) {
         if (!forumRuleTitle.isNullOrEmpty()) {
             item(key = "ForumRule") {
@@ -329,10 +331,6 @@ fun ForumThreadListPage(
         prop1 = ForumThreadListUiState::goodClassifies,
         initial = persistentListOf()
     )
-    val pullRefreshState = rememberPullRefreshState(
-        refreshing = isRefreshing,
-        onRefresh = { viewModel.send(getRefreshIntent(context, forumName, isGood)) }
-    )
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -403,13 +401,5 @@ fun ForumThreadListPage(
                 ) { navigator.navigate("user/${it.id}") }
             }
         }
-
-        PullRefreshIndicator(
-            refreshing = isRefreshing,
-            state = pullRefreshState,
-            modifier = Modifier.align(Alignment.TopCenter),
-            backgroundColor = ExtendedTheme.colors.pullRefreshIndicator,
-            contentColor = ExtendedTheme.colors.primary,
-        )
     }
 }

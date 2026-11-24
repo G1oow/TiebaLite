@@ -11,6 +11,7 @@ import androidx.compose.material.LocalContentAlpha
 import androidx.compose.material.LocalContentColor
 import androidx.compose.material.LocalTextStyle
 import androidx.compose.material.Text
+import androidx.compose.material3.LocalContentColor as Material3LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -180,6 +181,13 @@ fun PlaceholderDecoration(
     }
 }
 
+/**
+ * 同时提供 M2 / M3 两套内容色（迁移期桥接，AGENTS.md §5.2）。
+ *
+ * 迁移中的组合函数里既有 M2 组件也有 M3 组件：只给 M2 的 `LocalContentColor`，
+ * M3 `Icon` / `Text` 读不到（会回落到 M3 默认的 onSurface）；只给 M3 的，
+ * M2 组件连同 `LocalContentAlpha` 一起丢失。
+ */
 @Composable
 fun ProvideContentColor(
     color: Color,
@@ -188,7 +196,8 @@ fun ProvideContentColor(
 ) {
     CompositionLocalProvider(
         LocalContentColor provides color,
-        LocalContentAlpha provides alpha
+        LocalContentAlpha provides alpha,
+        Material3LocalContentColor provides color,
     ) {
         content()
     }

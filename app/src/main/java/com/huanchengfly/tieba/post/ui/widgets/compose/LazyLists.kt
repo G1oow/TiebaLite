@@ -65,17 +65,24 @@ private fun AdaptiveListWidthContainer(
  * [LocalBarsContentPadding] 换算成 `contentPadding`——**不能**再用 `Modifier.padding`
  * 缩视口，那会让栏所在的那几条永远不显示滚动内容（看起来就是一圈黑边）。
  * 这里默认把两层栏的占位合并进来，页面只需传自己的装饰性 padding。
+ *
+ * [avoidTopBar] 为 false 时只忽略顶栏占位（start / end / bottom 照旧）：页面若已用一个
+ * 固定头部把列表整体推到栏下方，列表自己再避让一次就会多出一整条栏高的空档。
  */
 @Composable
-private fun barsAwareContentPadding(contentPadding: PaddingValues): PaddingValues {
+private fun barsAwareContentPadding(
+    contentPadding: PaddingValues,
+    avoidTopBar: Boolean = true,
+): PaddingValues {
     val bars = LocalBarsContentPadding.current
     if (bars == PaddingValues(0.dp)) return contentPadding
     val layoutDirection = LocalLayoutDirection.current
-    return remember(contentPadding, bars, layoutDirection) {
+    return remember(contentPadding, bars, layoutDirection, avoidTopBar) {
+        val barsTop = if (avoidTopBar) bars.calculateTopPadding() else 0.dp
         PaddingValues(
             start = contentPadding.calculateStartPadding(layoutDirection) +
                     bars.calculateStartPadding(layoutDirection),
-            top = contentPadding.calculateTopPadding() + bars.calculateTopPadding(),
+            top = contentPadding.calculateTopPadding() + barsTop,
             end = contentPadding.calculateEndPadding(layoutDirection) +
                     bars.calculateEndPadding(layoutDirection),
             bottom = contentPadding.calculateBottomPadding() + bars.calculateBottomPadding(),
@@ -88,6 +95,7 @@ fun MyLazyColumn(
     modifier: Modifier = Modifier,
     state: LazyListState = rememberLazyListState(),
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    avoidTopBar: Boolean = true,
     reverseLayout: Boolean = false,
     verticalArrangement: Arrangement.Vertical =
         if (!reverseLayout) Arrangement.Top else Arrangement.Bottom,
@@ -100,7 +108,7 @@ fun MyLazyColumn(
         state.animateScrollToItem(0)
     }
 
-    val resolvedContentPadding = barsAwareContentPadding(contentPadding)
+    val resolvedContentPadding = barsAwareContentPadding(contentPadding, avoidTopBar)
     AdaptiveListWidthContainer(modifier = modifier) { listModifier ->
         LazyColumn(
             modifier = listModifier,
@@ -122,6 +130,7 @@ fun MyLazyVerticalGrid(
     modifier: Modifier = Modifier,
     state: LazyGridState = rememberLazyGridState(),
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    avoidTopBar: Boolean = true,
     reverseLayout: Boolean = false,
     verticalArrangement: Arrangement.Vertical =
         if (!reverseLayout) Arrangement.Top else Arrangement.Bottom,
@@ -134,7 +143,7 @@ fun MyLazyVerticalGrid(
         state.animateScrollToItem(0)
     }
 
-    val resolvedContentPadding = barsAwareContentPadding(contentPadding)
+    val resolvedContentPadding = barsAwareContentPadding(contentPadding, avoidTopBar)
     AdaptiveListWidthContainer(modifier = modifier) { gridModifier ->
         LazyVerticalGrid(
             columns = columns,

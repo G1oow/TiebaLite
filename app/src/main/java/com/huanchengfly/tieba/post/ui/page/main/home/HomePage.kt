@@ -89,6 +89,7 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.LongClickMenu
 import com.huanchengfly.tieba.post.ui.widgets.compose.MenuState
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyVerticalGrid
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
+import com.huanchengfly.tieba.post.ui.widgets.compose.PullToRefreshLayout
 import com.huanchengfly.tieba.post.ui.widgets.compose.TextButton
 import com.huanchengfly.tieba.post.ui.widgets.compose.TipScreen
 import com.huanchengfly.tieba.post.ui.widgets.compose.Toolbar
@@ -473,17 +474,15 @@ fun HomePage(
         },
         modifier = Modifier.fillMaxSize(),
     ) { contentPaddings ->
-        val pullRefreshState = rememberPullRefreshState(
-            refreshing = isLoading,
-            onRefresh = { viewModel.send(HomeUiIntent.Refresh) }
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .pullRefresh(pullRefreshState)
-        ) {
-            // 页面铺满整屏；只有这个不滚动的头部要避让顶栏，列表本身靠 contentPadding
-            // 避让（见 MyLazyColumn），这样滚动内容才能进入栏所在的区域。
+        Box(modifier = Modifier.fillMaxSize()) {
+            // 下拉刷新也走 MyScaffold 的 overlay：提示画在顶栏之上，不会被栏遮住。
+            PullToRefreshLayout(
+                refreshing = isLoading,
+                onRefresh = { viewModel.send(HomeUiIntent.Refresh) },
+            ) {
+            // 页面铺满整屏；这个不滚动的头部把内容整体推到顶栏下方，所以列表自己**不再**避让
+            // 顶栏（avoidTopBar = false）——否则头部与首项之间会多出一整条栏高的空档。
+            // 列表仍靠 contentPadding 避让底部胶囊，滚动内容才能进入栏所在的区域。
             Column(modifier = Modifier.padding(top = contentPaddings.calculateTopPadding())) {
                 SearchBox(modifier = Modifier.padding(bottom = 4.dp)) {
                     navigator.navigate("search")
@@ -515,6 +514,7 @@ fun HomePage(
                     MyLazyVerticalGrid(
                         columns = gridCells,
                         contentPadding = PaddingValues(bottom = 12.dp),
+                        avoidTopBar = false,
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         if (showHistoryForum) {
@@ -670,14 +670,7 @@ fun HomePage(
                     }
                 }
             }
-
-            PullRefreshIndicator(
-                refreshing = isLoading,
-                state = pullRefreshState,
-                modifier = Modifier.align(Alignment.TopCenter),
-                backgroundColor = ExtendedTheme.colors.pullRefreshIndicator,
-                contentColor = ExtendedTheme.colors.primary,
-            )
+            }
         }
     }
 }

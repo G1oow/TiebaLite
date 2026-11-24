@@ -49,8 +49,8 @@ val FloatingBarBottomMargin = 6.dp
  */
 @Composable
 fun floatingBarColor(color: Color = ExtendedTheme.colors.bottomBar): Color {
-    // 0.12 白 ≈ 纯黑底色 (#000000) 叠加后得到 #1F1F1F，与 topBarSurface 同档；
-    // 浅色主题只压 3% 黑，让栏在白底上有一条极淡的边界。
+    // 注意合成方向：这里是不透明栏色合在 overlay 之上，所以深色 / 纯黑主题下 12% 白**不会**提亮
+    // 栏色（用户 2026-11 明确不接受栏变亮），只有浅色主题的 3% 黑会在栏上留一条极淡的边界。
     val overlay = if (color.luminance() < 0.2f) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.03f)
     return remember(color, overlay) { color.compositeOver(overlay) }
 }

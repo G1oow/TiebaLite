@@ -63,6 +63,11 @@ $env:ANDROID_SDK_ROOT="F:\Android\sdk"
   没有退回 KSP1 的开关）。Android Studio 默认用 `C:\Users\<user>\.gradle`，需在
   Settings → Build, Execution, Deployment → Build Tools → Gradle → **Gradle user home** 改成
   `F:\Android\gradle-home`（与上面的命令行一致）；或设置用户环境变量 `GRADLE_USER_HOME` 后重启 IDE。
+- **Compose 编译器指标默认关闭**：AGP 9 传给 Compose 插件的 `moduleName` 带冒号（`TiebaLite:app_debug`），
+  `metricsDestination` / `reportsDestination` 会把它拼进文件名；Windows 把冒号当 NTFS 数据流分隔符——
+  轻则指标被写进 0 字节 `TiebaLite` 的 ADS（等于没产出），重则 `IOException: Invalid file path`
+  让整个 Kotlin 编译器崩掉。所以默认不设置这两项；需要时 `-PenableComposeMetrics=true`
+  （Windows 上打开仍会踩冒号问题，属 AGP / Compose 插件侧 bug，不在本仓库修）。
 
 ### 2.1 调试热重载（Live Edit）
 
@@ -143,6 +148,7 @@ $env:ANDROID_SDK_ROOT="F:\Android\sdk"
 - **禁止在同一个组合函数里混用 M2 与 M3 的同名组件**：两套 `MaterialTheme`、两套 `Scaffold` 语义会让测量与配色出现两个来源。需要跨边界取值时走 5.2 的桥接。
 - 配色唯一来源仍是 `ui/common/theme/compose` 的 `ExtendedTheme` / `ExtendedColors`（来自贴吧主题 attr 与调色板）。M3 侧读 `MaterialTheme.colorScheme` 时，由 `TiebaLiteTheme` 把 ExtendedColors 映射成 `ColorScheme`；**不要**在页面里另造一套颜色常量。
 - 迁移顺序按页面热度推进：主框架（`MyScaffold` / 栏 / 导航）→ 主界面 → 帖子页与吧页 → 设置类页面。每一步都必须保持可编译、可运行，不留半迁移的死代码。
+- 执行台账见 `docs/plan-m3-migration.md`：阶段划分、每阶段的改动范围与验收门禁、当前进度都在那里。动手前先看它，改完同步更新。
 
 ### 5.2 迁移期的桥接约定
 
@@ -155,7 +161,7 @@ $env:ANDROID_SDK_ROOT="F:\Android\sdk"
 栏的**布局语义**固定为「浮在内容之上」，不是「占掉一块布局空间」：
 
 1. 页面内容铺满整屏，栏以 overlay 叠在上面；内容通过 `PaddingValues`（列表用 `contentPadding`）避让栏的高度。
-2. 栏隐藏时只做**绘制位移**、不改布局高度：**顶栏整条（状态栏底色带 + 标题行 + 次级槽页签 / 搜索框）作为一整块滑出屏幕**，收起后顶栏区域没有任何残留；底栏（含胶囊、外边距、系统手势区）同样整块滑出。**不允许**留下空白条、也不允许留半截被系统栏压住的栏。
+2. 栏隐藏时只做**绘制位移**、不改布局高度：**顶栏整条（状态栏底色带 + 标题行 + 次级槽页签 / 搜索框）作为一整块滑出屏幕**，收起后顶栏区域没有任何残留；底栏（含胶囊、外边距、系统手势区）同样整块滑出。**不允许**留下空白条、也不允许留半截被系统栏压住的栏。**次级槽不要求常驻**：收起后「推荐 / 热榜」等页签不必停在状态栏下沿——整条一起滑出是本仓库的既定行为（2026-11 用户确认，勿按「页签常驻」的旧验收标准改回去）。
 3. 顶栏不需要单独的遮罩 / scrim：底色画在被位移的节点之内，随栏一起滑走，收起后状态栏区域直接显示滚动内容。
 4. **底栏统一胶囊式悬浮**：圆角、浮在内容之上，与屏幕左右留 16dp、与底部只留手势区 + 6dp 的间距，不使用「贴边整条栏」的形态。M3 下用 `Surface`（`shape` + `shadowElevation`/`tonalElevation`）承载；主界面、帖子页、子楼页、屏蔽词页等所有底栏共用 `ui/widgets/compose/FloatingBars.kt` 的 `FloatingBottomBar`，保持同一视觉族。
 5. 栏的隐藏实现仍须满足第 6 节的硬性约束（不消费滚动、独立动画、只改位置不改尺寸、状态 Activity 级共享）。

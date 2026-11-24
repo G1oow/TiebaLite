@@ -4,35 +4,37 @@ import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.DropdownMenuItem
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.ProvideTextStyle
-import androidx.compose.material.Text
-import androidx.compose.material.TopAppBar
+import androidx.compose.material.ProvideTextStyle as M2ProvideTextStyle
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -52,7 +54,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
@@ -67,10 +68,18 @@ import com.huanchengfly.tieba.post.arch.emitGlobalEvent
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.common.windowsizeclass.WindowWidthSizeClass.Companion.Compact
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
+import com.huanchengfly.tieba.post.ui.page.Routes
+import com.huanchengfly.tieba.post.ui.utils.topBarInsetsHeight
 import com.huanchengfly.tieba.post.utils.AccountUtil
 import com.huanchengfly.tieba.post.utils.AccountUtil.LocalAccount
 import com.huanchengfly.tieba.post.utils.StringUtil
 import com.huanchengfly.tieba.post.utils.compose.calcStatusBarColor
+
+/** M3 `DropdownMenuItem` 默认左右内边距 12dp，这里保持迁移前的 16dp，菜单观感不变。 */
+private val TopBarMenuItemPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+
+/** 标题行固定高度：与 M3 `TopAppBar` 一致，顶栏不随父级松约束被撑高。 */
+private val TopBarRowHeight = 56.dp
 
 @Composable
 fun accountNavIconIfCompact(): (@Composable () -> Unit)? =
@@ -94,10 +103,17 @@ fun AccountNavIcon(
                     R.drawable.ic_launcher_new_round
                 )
             ),
-            contentDescription = null,
+            contentDescription = stringResource(id = R.string.tip_login),
             modifier = Modifier
                 .clip(CircleShape)
                 .size(size)
+                // 未登录时头像是唯一的登录入口：点它直接进登录页（此前是个纯 Image，点了没反应）。
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    onClick?.invoke() ?: navigator.navigate(Routes.LOGIN)
+                }
         )
     } else {
         val context = LocalContext.current
@@ -106,32 +122,38 @@ fun AccountNavIcon(
             menuContent = {
                 val allAccounts = AccountUtil.allAccounts
                 allAccounts.forEach {
-                    DropdownMenuItem(onClick = { AccountUtil.switchAccount(context, it.id) }) {
-                        Box(
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .size(Sizes.Small)
-                        ) {
-                            Avatar(
-                                data = StringUtil.getAvatarUrl(it.portrait),
-                                contentDescription = stringResource(id = R.string.title_switch_account_long_press),
-                                size = Sizes.Small,
-                            )
-                            if (currentAccount.id == it.id) {
-                                Icon(
-                                    imageVector = Icons.Rounded.CheckCircle,
-                                    contentDescription = stringResource(id = R.string.desc_current_account),
-                                    tint = Color.White,
+                    DropdownMenuItem(
+                        onClick = { AccountUtil.switchAccount(context, it.id) },
+                        contentPadding = TopBarMenuItemPadding,
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
                                     modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(color = Color.Black.copy(0.35f))
-                                        .padding(8.dp)
-                                )
+                                        .clip(CircleShape)
+                                        .size(Sizes.Small)
+                                ) {
+                                    Avatar(
+                                        data = StringUtil.getAvatarUrl(it.portrait),
+                                        contentDescription = stringResource(id = R.string.title_switch_account_long_press),
+                                        size = Sizes.Small,
+                                    )
+                                    if (currentAccount.id == it.id) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.CheckCircle,
+                                            contentDescription = stringResource(id = R.string.desc_current_account),
+                                            tint = Color.White,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(color = Color.Black.copy(0.35f))
+                                                .padding(8.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(text = it.nameShow ?: it.name)
                             }
                         }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(text = it.nameShow ?: it.name)
-                    }
+                    )
                 }
                 VerticalDivider(
                     modifier = Modifier.padding(vertical = 8.dp)
@@ -139,21 +161,25 @@ fun AccountNavIcon(
                 DropdownMenuItem(
                     onClick = {
                         navigator.navigate("login")
+                    },
+                    contentPadding = TopBarMenuItemPadding,
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = stringResource(id = R.string.title_new_account),
+                                tint = ExtendedTheme.colors.onChip,
+                                modifier = Modifier
+                                    .size(Sizes.Small)
+                                    .clip(CircleShape)
+                                    .background(color = ExtendedTheme.colors.chip)
+                                    .padding(8.dp),
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(text = stringResource(id = R.string.title_new_account))
+                        }
                     }
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Add,
-                        contentDescription = stringResource(id = R.string.title_new_account),
-                        tint = ExtendedTheme.colors.onChip,
-                        modifier = Modifier
-                            .size(Sizes.Small)
-                            .clip(CircleShape)
-                            .background(color = ExtendedTheme.colors.chip)
-                            .padding(8.dp),
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(text = stringResource(id = R.string.title_new_account))
-                }
+                )
             },
             menuState = menuState,
             onClick = onClick,
@@ -200,7 +226,7 @@ fun BackNavigationIcon(onBackPressed: () -> Unit) {
     "Use the non deprecated overload",
     ReplaceWith(
         """TitleCentredToolbar(
-                title = { Text(text = title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.h6) },
+                title = { Text(text = title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge) },
                 modifier = modifier,
                 insets = insets,
                 navigationIcon = navigationIcon,
@@ -208,8 +234,8 @@ fun BackNavigationIcon(onBackPressed: () -> Unit) {
                 content = content
             )""",
         "androidx.compose.ui.text.font.FontWeight",
-        "androidx.compose.material.MaterialTheme",
-        "androidx.compose.material.Text"
+        "androidx.compose.material3.MaterialTheme",
+        "androidx.compose.material3.Text"
     )
 )
 @Composable
@@ -244,37 +270,39 @@ fun TitleCentredToolbar(
 ) {
     TopAppBarContainer(
         topBar = {
-            TopAppBar(
-                backgroundColor = Color.Transparent,
-                contentColor = ExtendedTheme.colors.onTopBar,
-                elevation = 0.dp
+            // 标题居中的自定义行：M3 的 TopAppBar 强制 56dp 高、标题槽自带 start inset，
+            // 与这里「内容定高 + 整行居中」的观感不一致，所以不进 TopAppBar，只保留行布局。
+            // 定高行：这里必须给出高度，不能用 fillMaxSize —— 顶栏在浮层里拿到的是松约束，
+            // fillMaxSize 会把标题行撑成整屏高，把整页内容挤到屏幕外（push 路由整页只剩标题的根因）。
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(TopBarRowHeight)
             ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxHeight()
-                    ) {
-                        ProvideContentColor(color = ExtendedTheme.colors.onTopBar) {
-                            navigationIcon?.invoke()
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxHeight()
+                ) {
+                    ProvideContentColor(color = ExtendedTheme.colors.onTopBar) {
+                        navigationIcon?.invoke()
 
-                            Spacer(modifier = Modifier.weight(1f))
+                        Spacer(modifier = Modifier.weight(1f))
 
-                            actions()
-                        }
+                        actions()
                     }
+                }
 
-                    Row(
-                        Modifier
-                            .fillMaxHeight()
-                            .align(Alignment.Center),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        ProvideTextStyle(value = MaterialTheme.typography.h6.copy(fontWeight = FontWeight.Bold)) {
-                            ProvideContentColor(color = ExtendedTheme.colors.onTopBar) {
-                                title()
-                            }
+                Row(
+                    Modifier
+                        .fillMaxHeight()
+                        .align(Alignment.Center),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    ProvideTopBarTitleStyle {
+                        ProvideContentColor(color = ExtendedTheme.colors.onTopBar) {
+                            title()
                         }
                     }
                 }
@@ -303,6 +331,7 @@ fun Toolbar(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Toolbar(
     title: @Composable (() -> Unit),
@@ -316,7 +345,7 @@ fun Toolbar(
         topBar = {
             TopAppBar(
                 title = {
-                    ProvideTextStyle(value = MaterialTheme.typography.h6.copy(fontWeight = FontWeight.Bold)) {
+                    ProvideTopBarTitleStyle {
                         ProvideContentColor(color = contentColor, content = title)
                     }
                 },
@@ -329,17 +358,36 @@ fun Toolbar(
                     ProvideContentColor(color = contentColor) {
                         navigationIcon?.invoke()
                     }
-                }).takeIf { navigationIcon != null },
-                backgroundColor = backgroundColor,
-                contentColor = contentColor,
-                elevation = 0.dp
+                }),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = backgroundColor,
+                    titleContentColor = contentColor,
+                    navigationIconContentColor = contentColor,
+                    actionIconContentColor = contentColor,
+                ),
+                // 与迁移前的 M2 顶栏同高，正文起始位置不变。
+                expandedHeight = 56.dp,
+                // M3 自带状态栏 inset，会和 TopAppBarContainer 手画的状态栏底色带叠加。
+                windowInsets = WindowInsets(0, 0, 0, 0),
             )
         },
         content = content
     )
 }
 
-
+/**
+ * 迁移期桥接：同时提供 M2 / M3 两套 `LocalTextStyle`。
+ *
+ * `title` 槽由各页面传入，里面仍有大量 M2 `Text`；只提供 M3 的 local 会让标题丢掉
+ * h6 / Bold 回落到 body1。等页面标题都换成 M3 `Text` 后删掉 M2 那一层。
+ */
+@Composable
+private fun ProvideTopBarTitleStyle(content: @Composable () -> Unit) {
+    val style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+    M2ProvideTextStyle(style) {
+        ProvideTextStyle(style) { content() }
+    }
+}
 
 /**
  * 顶栏容器：「标题栏」+「次级槽（页签 / 搜索框）」。
@@ -361,16 +409,11 @@ fun TopAppBarContainer(
     insets: Boolean = true,
     content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
-    val density = LocalDensity.current
     val barsState = LocalBarsAutoHideState.current
     val hiddenFraction = barsState?.hiddenFraction ?: 0f
-    val statusBarInset = if (insets) {
-        with(density) {
-            WindowInsets.statusBars.union(WindowInsets.displayCutout).getTop(density).toDp()
-        }
-    } else {
-        0.dp
-    }
+
+    // 状态栏底色带与吸顶页签避让共用同一份 inset（见 [topBarInsetsHeight]），避免两处各算一遍。
+    val statusBarInset = if (insets) topBarInsetsHeight() else 0.dp
     val coroutineScope = rememberCoroutineScope()
     var barHeightPx by remember { mutableIntStateOf(0) }
     // 深色 / 纯黑主题下栏底与页面底色几乎相同，整条顶栏读起来像「没渲染出来的黑边」。

@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -70,6 +72,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -110,6 +113,8 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.FeedCardPlaceholder
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
 import com.huanchengfly.tieba.post.ui.widgets.compose.MenuScope
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
+import com.huanchengfly.tieba.post.ui.widgets.compose.stickyHeaderTopInset
+
 import com.huanchengfly.tieba.post.ui.widgets.compose.PagerTabIndicator
 import com.huanchengfly.tieba.post.ui.widgets.compose.PullToRefreshLayout
 import com.huanchengfly.tieba.post.ui.widgets.compose.ScrollableTabRow
@@ -692,9 +697,18 @@ fun ForumPage(
                         }
                     }
 
+                    // 顶部留白跟随顶栏：顶栏收起时整块页头（含「最新 / 精华」）随之上移贴住状态栏，
+                    // 顶栏回来时再被顶下去——与 stickyHeader 用同一份 inset 规则。
+                    val layoutDirection = LocalLayoutDirection.current
+                    val followingPadding = PaddingValues(
+                        start = contentPadding.calculateStartPadding(layoutDirection),
+                        top = stickyHeaderTopInset(),
+                        end = contentPadding.calculateEndPadding(layoutDirection),
+                        bottom = contentPadding.calculateBottomPadding(),
+                    )
                     Box(
                         modifier = Modifier
-                            .padding(contentPadding)
+                            .padding(followingPadding)
                             .nestedScroll(headerNestedScrollConnection)
                     ) {
                         Column {
