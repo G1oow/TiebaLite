@@ -11,7 +11,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
-import androidx.hilt.navigation.HiltViewModelFactory
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
@@ -123,25 +122,7 @@ inline fun <reified VM : ViewModel> hiltViewModel(
         "No ViewModelStoreOwner was provided via LocalViewModelStoreOwner"
     },
     key: String? = null,
-): VM {
-    val factory = createHiltViewModelFactory(viewModelStoreOwner)
-    return viewModel(viewModelStoreOwner, key = key, factory = factory)
-}
-
-@Composable
-@PublishedApi
-internal fun createHiltViewModelFactory(
-    viewModelStoreOwner: ViewModelStoreOwner,
-): ViewModelProvider.Factory? = if (viewModelStoreOwner is NavBackStackEntry) {
-    HiltViewModelFactory(
-        context = LocalContext.current,
-        navBackStackEntry = viewModelStoreOwner
-    )
-} else {
-    // Use the default factory provided by the ViewModelStoreOwner
-    // and assume it is an @AndroidEntryPoint annotated fragment or activity
-    null
-}
+): VM = androidx.hilt.navigation.compose.hiltViewModel(viewModelStoreOwner, key)
 
 @Composable
 inline fun <reified VM : BaseViewModel<*, *, *, *>> pageViewModel(

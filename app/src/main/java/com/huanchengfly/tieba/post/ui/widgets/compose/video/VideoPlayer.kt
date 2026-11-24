@@ -28,6 +28,7 @@ import androidx.compose.material.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
@@ -46,6 +47,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import androidx.media3.ui.compose.PlayerSurface
 import com.github.panpf.sketch.compose.AsyncImage
 import com.huanchengfly.tieba.post.R
 import com.huanchengfly.tieba.post.ui.widgets.compose.video.util.getDurationString
@@ -97,6 +99,7 @@ fun rememberVideoPlayerController(
     )
 }
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun VideoPlayer(
     videoPlayerController: VideoPlayerController,
@@ -110,7 +113,6 @@ fun VideoPlayer(
     }
 
     SideEffect {
-        videoPlayerController.videoPlayerBackgroundColor = backgroundColor.value.toInt()
         videoPlayerController.enableControls(controlsEnabled)
         videoPlayerController.enableGestures(gesturesEnabled)
     }
@@ -147,12 +149,16 @@ fun VideoPlayer(
                 .then(modifier)
         ) {
             if (startedPlay) {
+                val player = videoPlayerController.player
                 PlayerSurface(
+                    player = player,
                     modifier = Modifier
                         .aspectRatio(aspectRatio.takeUnless { it.isNaN() || it == 0f } ?: 2f)
                         .align(Alignment.Center)
-                ) {
-                    videoPlayerController.playerViewAvailable(it)
+                )
+                // 画面就位后才 prepare，保持「有 Surface 才起播」的原行为
+                LaunchedEffect(player) {
+                    videoPlayerController.onSurfaceAttached()
                 }
 
                 MediaController()

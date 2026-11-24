@@ -83,8 +83,8 @@ public class PermissionDialog extends AlertDialog implements View.OnClickListene
     @SuppressLint("ApplySharedPref")
     @Override
     public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.permission_actions_allow:
+        final int id = v.getId();
+        if (id == R.id.permission_actions_allow) {
                 if (getOnGrantedCallback() != null) {
                     getOnGrantedCallback().onGranted(checkBox.isChecked());
                 }
@@ -95,8 +95,7 @@ public class PermissionDialog extends AlertDialog implements View.OnClickListene
                             .commit();
                 }
                 dismiss();
-                break;
-            case R.id.permission_actions_denied:
+        } else if (id == R.id.permission_actions_denied) {
                 if (getOnDeniedCallback() != null) {
                     getOnDeniedCallback().onDenied(checkBox.isChecked());
                 }
@@ -107,7 +106,6 @@ public class PermissionDialog extends AlertDialog implements View.OnClickListene
                             .commit();
                 }
                 dismiss();
-                break;
         }
     }
 

@@ -87,24 +87,9 @@ jobs:
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           ls "$SDK/platforms" "$SDK/build-tools"
 
-      # sweet-dependency 配置把官方源覆盖成了 aliyun 国内镜像（为 Codeberg/国内网络加的），
-      # GitHub runner 在海外，拉镜像超时/不可用导致插件标记 artifact 解析失败。
-      # CI 侧改回官方默认源——只改工作副本，不入库。
-      - name: Use official repositories on CI
-        run: |
-          python3 - <<'EOF'
-          p = 'gradle/sweet-dependency/sweet-dependency-config.yaml'
-          s = open(p, encoding='utf-8').read()
-          for mirror, official in (
-              ('https://maven.aliyun.com/repository/gradle-plugin', 'https://plugins.gradle.org/m2'),
-              ('https://maven.aliyun.com/repository/google', 'https://dl.google.com/dl/android/maven2'),
-              ('https://maven.aliyun.com/repository/public', 'https://repo.maven.apache.org/maven2'),
-          ):
-              s = s.replace(mirror, official)
-          open(p, 'w', encoding='utf-8').write(s)
-          print('repositories switched to official sources')
-          EOF
-          grep -A 12 "^repositories:" gradle/sweet-dependency/sweet-dependency-config.yaml
+      # 依赖仓库已在 settings.gradle.kts 里声明为官方源（google / Maven Central /
+      # Gradle Plugin Portal / JitPack，另有 verve 与厂商仓库兜底第三方库），
+      # SweetDependency 已移除，CI 侧不再需要改写仓库配置。
 
       # 发布签名由 build.gradle.kts 固定指向 app/tblite_debug.jks；
       # assembleRelease 依赖 checkReleaseSigning，签名缺失或证书指纹不符会直接失败。
