@@ -78,7 +78,6 @@ fun MoreSettingsPage(
             dataStore = LocalContext.current.dataStore,
             dividerThickness = 0.dp,
             modifier = Modifier
-                .padding(paddingValues)
                 .fillMaxSize(),
         ) {
             if (context.appPreferences.showExperimentalFeatures) {

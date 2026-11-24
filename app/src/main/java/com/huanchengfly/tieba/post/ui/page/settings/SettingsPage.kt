@@ -120,7 +120,6 @@ fun SettingsPage(
                 dataStore = LocalContext.current.dataStore,
                 dividerThickness = 0.dp,
                 modifier = Modifier
-                    .padding(it)
                     .fillMaxSize(),
             ) {
                 prefsItem {
