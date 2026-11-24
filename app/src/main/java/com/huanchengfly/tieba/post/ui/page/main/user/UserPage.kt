@@ -23,15 +23,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,8 +55,8 @@ import com.huanchengfly.tieba.post.arch.pageViewModel
 import com.huanchengfly.tieba.post.models.database.Account
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.page.Routes
-import com.huanchengfly.tieba.post.ui.common.theme.compose.pullRefreshIndicator
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
+import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.ConfirmDialog
 import com.huanchengfly.tieba.post.ui.widgets.compose.BarsBottomSpacer
@@ -240,7 +236,6 @@ private fun LoginTipCard(modifier: Modifier = Modifier) {
     }
 }
 
-@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun UserPage(
     viewModel: UserViewModel = pageViewModel<UserUiIntent, UserViewModel>(
@@ -284,14 +279,10 @@ fun UserPage(
         modifier = Modifier
             .statusBarsPadding()
             .fillMaxSize()
-    ) { contentPaddings ->
-        val pullRefreshState = rememberPullRefreshState(
+    ) { _ ->
+        PullRefresh(
             refreshing = isLoading,
-            onRefresh = { viewModel.send(UserUiIntent.Refresh) })
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .pullRefresh(pullRefreshState),
+            onRefresh = { viewModel.send(UserUiIntent.Refresh) },
         ) {
             Column(
                 modifier = Modifier
@@ -456,16 +447,6 @@ fun UserPage(
                 )
                 BarsBottomSpacer()
             }
-
-            PullRefreshIndicator(
-                refreshing = isLoading,
-                state = pullRefreshState,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = contentPaddings.calculateTopPadding()),
-                backgroundColor = ExtendedTheme.colors.pullRefreshIndicator,
-                contentColor = ExtendedTheme.colors.primary,
-            )
         }
     }
 }

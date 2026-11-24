@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.NoAccounts
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -92,11 +93,12 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.Chip
 import com.huanchengfly.tieba.post.ui.widgets.compose.ClickMenu
 import com.huanchengfly.tieba.post.ui.widgets.compose.ErrorScreen
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
+import com.huanchengfly.tieba.post.ui.widgets.compose.LocalBarsAutoHideState
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoadHorizontalPager
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import com.huanchengfly.tieba.post.ui.widgets.compose.PagerTabIndicator
 import com.huanchengfly.tieba.post.ui.widgets.compose.ProvideContentColor
-import com.huanchengfly.tieba.post.ui.widgets.compose.PullToRefreshLayout
+import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
 import com.huanchengfly.tieba.post.ui.widgets.compose.ScrollableTabRow
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
 import com.huanchengfly.tieba.post.ui.widgets.compose.Toolbar
@@ -207,6 +209,14 @@ private fun UserProfileContent(
     onFollow: () -> Unit,
     onUnfollow: () -> Unit,
 ) {
+    // 个人主页的顶栏常驻：页头本身就是导航标识（头像 / ID / 返回 / 黑名单），跟随滑动上滑后
+    // 正文仍按栏高留了 padding，状态栏下方会出现一条「有高度、没内容」的空白带。
+    val barsAutoHideState = LocalBarsAutoHideState.current
+    DisposableEffect(barsAutoHideState) {
+        barsAutoHideState?.pin()
+        onDispose { barsAutoHideState?.unpin() }
+    }
+
     when (LocalWindowSizeClass.current.widthSizeClass) {
         WindowWidthSizeClass.Expanded -> {
             UserProfileContentExpanded(
@@ -363,7 +373,7 @@ private fun UserProfileContentNormal(
             }
         }
 
-        PullToRefreshLayout(
+        PullRefresh(
             refreshing = isFakeRefreshing,
             onRefresh = {
                 coroutineScope.emitGlobalEvent(GlobalEvent.Refresh(key = "user_profile"))
@@ -428,6 +438,7 @@ private fun UserProfileContentNormal(
                                         uid = user.get { id },
                                         isThread = true,
                                         fluid = fluid,
+                                        avoidTopBar = false,
                                     )
                                 }
                             ),
@@ -444,6 +455,7 @@ private fun UserProfileContentNormal(
                                         uid = user.get { id },
                                         isThread = false,
                                         fluid = fluid,
+                                        avoidTopBar = false,
                                     )
                                 }
                             ).takeIf { isSelf },
@@ -459,6 +471,7 @@ private fun UserProfileContentNormal(
                                     UserLikeForumPage(
                                         uid = user.get { id },
                                         fluid = fluid,
+                                        avoidTopBar = false,
                                     )
                                 }
                             ),
@@ -591,6 +604,7 @@ private fun UserProfileContentExpanded(
                                         isThread = true,
                                         fluid = expanded,
                                         enablePullRefresh = expanded,
+                                        avoidTopBar = false,
                                     )
                                 }
                             ),
@@ -608,6 +622,7 @@ private fun UserProfileContentExpanded(
                                         isThread = false,
                                         fluid = expanded,
                                         enablePullRefresh = expanded,
+                                        avoidTopBar = false,
                                     )
                                 }
                             ).takeIf { isSelf },
@@ -624,6 +639,7 @@ private fun UserProfileContentExpanded(
                                         uid = user.get { id },
                                         fluid = expanded,
                                         enablePullRefresh = expanded,
+                                        avoidTopBar = false,
                                     )
                                 }
                             ),

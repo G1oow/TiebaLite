@@ -2,7 +2,6 @@ package com.huanchengfly.tieba.post.ui.page.user.likeforum
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,12 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -30,7 +25,6 @@ import com.huanchengfly.tieba.post.arch.getOrNull
 import com.huanchengfly.tieba.post.arch.onGlobalEvent
 import com.huanchengfly.tieba.post.arch.pageViewModel
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
-import com.huanchengfly.tieba.post.ui.common.theme.compose.pullRefreshIndicator
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.Container
@@ -38,16 +32,17 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.ErrorScreen
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
 import com.huanchengfly.tieba.post.ui.widgets.compose.LoadMoreLayout
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
+import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
 import com.huanchengfly.tieba.post.ui.widgets.compose.states.StateScreen
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
-@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun UserLikeForumPage(
     uid: Long,
     fluid: Boolean = false,
+    avoidTopBar: Boolean = true,
     enablePullRefresh: Boolean = false,
     viewModel: UserLikeForumViewModel = pageViewModel(),
 ) {
@@ -105,17 +100,13 @@ fun UserLikeForumPage(
         },
         errorScreen = { ErrorScreen(error = error.getOrNull()) },
     ) {
-        val pullRefreshState = rememberPullRefreshState(
-            refreshing = isRefreshing,
-            onRefresh = ::reload
-        )
-
         val lazyListState = rememberLazyListState()
 
-        val pullRefreshModifier =
-            if (enablePullRefresh) Modifier.pullRefresh(pullRefreshState) else Modifier
-
-        Box(modifier = pullRefreshModifier) {
+        PullRefresh(
+            refreshing = isRefreshing,
+            onRefresh = ::reload,
+            enabled = enablePullRefresh,
+        ) {
             LoadMoreLayout(
                 isLoading = isLoadingMore,
                 onLoadMore = {
@@ -127,6 +118,7 @@ fun UserLikeForumPage(
                 UserLikeForumList(
                     data = forums,
                     fluid = fluid,
+                    avoidTopBar = avoidTopBar,
                     onClickForum = { forumBean ->
                         forumBean.name?.let {
                             navigator.navigate("forum/$it")
@@ -135,14 +127,6 @@ fun UserLikeForumPage(
                     lazyListState = lazyListState
                 )
             }
-
-            PullRefreshIndicator(
-                refreshing = isRefreshing,
-                state = pullRefreshState,
-                modifier = Modifier.align(Alignment.TopCenter),
-                backgroundColor = ExtendedTheme.colors.pullRefreshIndicator,
-                contentColor = ExtendedTheme.colors.primary,
-            )
         }
     }
 }
@@ -153,8 +137,13 @@ private fun UserLikeForumList(
     onClickForum: (UserLikeForumBean.ForumBean) -> Unit,
     fluid: Boolean = false,
     lazyListState: LazyListState = rememberLazyListState(),
+    avoidTopBar: Boolean = true,
 ) {
-    MyLazyColumn(state = lazyListState) {
+    MyLazyColumn(
+        state = lazyListState,
+        // 同 UserPostPage：父级已消费顶栏占位时不再重复避让。
+        avoidTopBar = avoidTopBar,
+    ) {
         items(
             items = data,
             key = { it.id }

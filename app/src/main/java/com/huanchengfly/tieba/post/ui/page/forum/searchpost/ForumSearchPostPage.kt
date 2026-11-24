@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.ContentAlpha
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -32,9 +31,6 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -62,7 +58,6 @@ import com.huanchengfly.tieba.post.arch.collectPartialAsState
 import com.huanchengfly.tieba.post.arch.pageViewModel
 import com.huanchengfly.tieba.post.models.database.SearchPostHistory
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
-import com.huanchengfly.tieba.post.ui.common.theme.compose.pullRefreshIndicator
 import com.huanchengfly.tieba.post.ui.page.ProvideNavigator
 import com.huanchengfly.tieba.post.ui.widgets.compose.stickyHeaderTopInset
 import com.huanchengfly.tieba.post.ui.widgets.compose.Button
@@ -71,6 +66,7 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.ErrorScreen
 import com.huanchengfly.tieba.post.ui.widgets.compose.HorizontalDivider
 import com.huanchengfly.tieba.post.ui.widgets.compose.LoadMoreLayout
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
+import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
 import com.huanchengfly.tieba.post.ui.widgets.compose.SearchBox
 import com.huanchengfly.tieba.post.ui.widgets.compose.SearchThreadList
 import com.huanchengfly.tieba.post.ui.widgets.compose.TopAppBarContainer
@@ -193,7 +189,7 @@ private fun SearchHistoryList(
     }
 }
 
-@OptIn(ExperimentalMaterialApi::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ForumSearchPostPage(
     forumName: String,
@@ -274,10 +270,6 @@ fun ForumSearchPostPage(
         )
     }
 
-    val pullRefreshState = rememberPullRefreshState(
-        refreshing = isRefreshing,
-        onRefresh = ::refresh
-    )
     val lazyListState = rememberLazyListState()
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -376,10 +368,9 @@ fun ForumSearchPostPage(
                             }
                         }
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .pullRefresh(pullRefreshState)
+                        PullRefresh(
+                            refreshing = isRefreshing,
+                            onRefresh = ::refresh,
                         ) {
                             LoadMoreLayout(
                                 isLoading = isLoadingMore,
@@ -541,14 +532,6 @@ fun ForumSearchPostPage(
                                     }
                                 }
                             }
-
-                            PullRefreshIndicator(
-                                refreshing = isRefreshing,
-                                state = pullRefreshState,
-                                modifier = Modifier.align(Alignment.TopCenter),
-                                backgroundColor = ExtendedTheme.colors.pullRefreshIndicator,
-                                contentColor = ExtendedTheme.colors.primary,
-                            )
                         }
                     }
                 } else {

@@ -30,7 +30,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
-import com.huanchengfly.tieba.post.ui.utils.topBarInsetsHeight
 
 /**
  * 当前页顶栏的实测高度（含状态栏底色带）。
@@ -131,7 +130,6 @@ fun MyScaffold(
     var bottomBarHeightPx by remember { mutableIntStateOf(0) }
     val topBarHeight = with(density) { topBarHeightPx.toDp() }
     val bottomBarHeight = with(density) { bottomBarHeightPx.toDp() }
-    val pullRefreshOverlay = remember { PullRefreshOverlayState() }
     val innerPadding = remember(topBarHeight, bottomBarHeight) {
         PaddingValues(top = topBarHeight, bottom = bottomBarHeight)
     }
@@ -150,7 +148,6 @@ fun MyScaffold(
             CompositionLocalProvider(
                 LocalBarsContentPadding provides mergedPadding,
                 LocalTopBarHeight provides topBarHeight,
-                LocalPullRefreshOverlay provides pullRefreshOverlay,
             ) {
                 content(mergedPadding)
             }
@@ -190,22 +187,6 @@ fun MyScaffold(
                     .padding(end = 16.dp, bottom = bottomBarHeight + 16.dp),
             ) {
                 floatingActionButton()
-            }
-            // 下拉刷新提示画在栏之上：首页那种「提示被顶栏盖住」的情况就没有了，
-            // 也不需要为了露出提示去推整条顶栏（推完还得回位，会停在非吸顶位置）。
-            if (pullRefreshOverlay.visible) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .padding(top = topBarInsetsHeight()),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    PullRefreshIndicatorContent(
-                        isRefreshing = pullRefreshOverlay.refreshing,
-                        willLoad = pullRefreshOverlay.willRefresh,
-                    )
-                }
             }
         }
     }

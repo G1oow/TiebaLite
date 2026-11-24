@@ -1,15 +1,10 @@
 package com.huanchengfly.tieba.post.ui.page.main.explore.concern
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -22,18 +17,16 @@ import com.huanchengfly.tieba.post.arch.collectPartialAsState
 import com.huanchengfly.tieba.post.arch.onGlobalEvent
 import com.huanchengfly.tieba.post.arch.pageViewModel
 import com.huanchengfly.tieba.post.arch.wrapImmutable
-import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
-import com.huanchengfly.tieba.post.ui.common.theme.compose.pullRefreshIndicator
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
 import com.huanchengfly.tieba.post.ui.widgets.compose.Container
 import com.huanchengfly.tieba.post.ui.widgets.compose.FeedCard
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
 import com.huanchengfly.tieba.post.ui.widgets.compose.LoadMoreLayout
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
+import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
 import com.huanchengfly.tieba.post.ui.widgets.compose.VerticalDivider
 import kotlinx.collections.immutable.persistentListOf
 
-@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun ConcernPage(
     viewModel: ConcernViewModel = pageViewModel()
@@ -59,9 +52,6 @@ fun ConcernPage(
         prop1 = ConcernUiState::data,
         initial = persistentListOf()
     )
-    val pullRefreshState = rememberPullRefreshState(
-        refreshing = isRefreshing,
-        onRefresh = { viewModel.send(ConcernUiIntent.Refresh) })
 
     onGlobalEvent<GlobalEvent.Refresh>(
         filter = { it.key == "concern" }
@@ -72,8 +62,9 @@ fun ConcernPage(
     val lazyListState = rememberLazyListState()
     viewModel.bindScrollToTopEvent(lazyListState = lazyListState)
 
-    Box(
-        modifier = Modifier.pullRefresh(pullRefreshState)
+    PullRefresh(
+        refreshing = isRefreshing,
+        onRefresh = { viewModel.send(ConcernUiIntent.Refresh) },
     ) {
         LoadMoreLayout(
             isLoading = isLoadingMore,
@@ -129,13 +120,5 @@ fun ConcernPage(
                 }
             }
         }
-
-        PullRefreshIndicator(
-            refreshing = isRefreshing,
-            state = pullRefreshState,
-            modifier = Modifier.align(Alignment.TopCenter),
-            backgroundColor = ExtendedTheme.colors.pullRefreshIndicator,
-            contentColor = ExtendedTheme.colors.primary,
-        )
     }
 }

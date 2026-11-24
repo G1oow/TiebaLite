@@ -1,8 +1,11 @@
 package com.huanchengfly.tieba.post.ui.page.main.explore
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.PagerState
@@ -12,9 +15,16 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import androidx.compose.material.Tab
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.FilterAlt
+import androidx.compose.material.icons.rounded.FilterAltOff
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -41,6 +51,8 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.PagerTabIndicator
 import com.huanchengfly.tieba.post.ui.widgets.compose.TabRow
 import com.huanchengfly.tieba.post.ui.widgets.compose.Toolbar
 import com.huanchengfly.tieba.post.ui.widgets.compose.accountNavIconIfCompact
+import com.huanchengfly.tieba.post.rememberPreferenceAsState
+import com.huanchengfly.tieba.post.utils.appPreferences
 import com.huanchengfly.tieba.post.utils.AccountUtil.LocalAccount
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -54,43 +66,68 @@ data class ExplorePageItem(
     val content: @Composable () -> Unit,
 )
 
+/**
+ * 顶栏的次级槽：居中的页签 + 行尾的「只看已关注的吧」开关。
+ *
+ * 开关只对「推荐」生效，所以只在推荐页签时出现；它改的是 `personalized_followed_only`
+ * 这个偏好（推荐流刷新时按它过滤），点按后广播一次该页签的刷新事件。
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ColumnScope.ExplorePageTab(
     pagerState: PagerState,
-    pages: ImmutableList<ExplorePageItem>
+    pages: ImmutableList<ExplorePageItem>,
+    followedOnly: Boolean,
+    onToggleFollowedOnly: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val showFollowedOnlyToggle = pages[pagerState.currentPage].id == "personalized"
 
-    TabRow(
-        selectedTabIndex = pagerState.currentPage,
-        indicator = { tabPositions ->
-            PagerTabIndicator(
-                pagerState = pagerState,
-                tabPositions = tabPositions
-            )
-        },
-        divider = {},
-        backgroundColor = Color.Transparent,
-        contentColor = ExtendedTheme.colors.onTopBar,
-        modifier = Modifier
-            .align(Alignment.CenterHorizontally)
-            .width(76.dp * pages.size),
-    ) {
-        pages.fastForEachIndexed { index, item ->
-            Tab(
-                text = { item.name(pagerState.currentPage == index) },
-                selected = pagerState.currentPage == index,
-                onClick = {
-                    coroutineScope.launch {
-                        if (pagerState.currentPage == index) {
-                            emitGlobalEvent(GlobalEvent.Refresh(item.id))
-                        } else {
-                            pagerState.animateScrollToPage(index)
+    Box(modifier = Modifier.fillMaxWidth()) {
+        TabRow(
+            selectedTabIndex = pagerState.currentPage,
+            indicator = { tabPositions ->
+                PagerTabIndicator(
+                    pagerState = pagerState,
+                    tabPositions = tabPositions
+                )
+            },
+            divider = {},
+            backgroundColor = Color.Transparent,
+            contentColor = ExtendedTheme.colors.onTopBar,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .width(76.dp * pages.size),
+        ) {
+            pages.fastForEachIndexed { index, item ->
+                Tab(
+                    text = { item.name(pagerState.currentPage == index) },
+                    selected = pagerState.currentPage == index,
+                    onClick = {
+                        coroutineScope.launch {
+                            if (pagerState.currentPage == index) {
+                                emitGlobalEvent(GlobalEvent.Refresh(item.id))
+                            } else {
+                                pagerState.animateScrollToPage(index)
+                            }
                         }
-                    }
-                },
-            )
+                    },
+                )
+            }
+        }
+        if (showFollowedOnlyToggle) {
+            IconButton(
+                onClick = onToggleFollowedOnly,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 4.dp),
+            ) {
+                Icon(
+                    imageVector = if (followedOnly) Icons.Rounded.FilterAlt else Icons.Rounded.FilterAltOff,
+                    contentDescription = stringResource(id = R.string.personalized_followed_only),
+                    tint = if (followedOnly) ExtendedTheme.colors.primary else ExtendedTheme.colors.onTopBar,
+                )
+            }
         }
     }
 }
@@ -137,6 +174,16 @@ fun ExplorePage() {
     }
     val pagerState = rememberPagerState(initialPage = if (account != null) 1 else 0) { pages.size }
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    // 开关与推荐流共用同一个偏好：推荐流刷新时按它过滤，这里是它的顶栏入口。
+    val followedOnly by rememberPreferenceAsState(
+        key = booleanPreferencesKey("personalized_followed_only"),
+        defaultValue = context.appPreferences.personalizedFollowedOnly,
+    )
+    val onToggleFollowedOnly: () -> Unit = {
+        context.appPreferences.personalizedFollowedOnly = !followedOnly
+        coroutineScope.emitGlobalEvent(GlobalEvent.Refresh("personalized"))
+    }
 
     onGlobalEvent<GlobalEvent.Refresh>(
         filter = { it.key == "explore" }
@@ -159,7 +206,12 @@ fun ExplorePage() {
                     }
                 },
             ) {
-                ExplorePageTab(pagerState = pagerState, pages = pages)
+                ExplorePageTab(
+                    pagerState = pagerState,
+                    pages = pages,
+                    followedOnly = followedOnly,
+                    onToggleFollowedOnly = onToggleFollowedOnly,
+                )
             }
         },
         modifier = Modifier.fillMaxSize(),

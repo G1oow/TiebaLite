@@ -16,12 +16,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -45,7 +41,6 @@ import com.huanchengfly.tieba.post.arch.getOrNull
 import com.huanchengfly.tieba.post.arch.onGlobalEvent
 import com.huanchengfly.tieba.post.arch.pageViewModel
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
-import com.huanchengfly.tieba.post.ui.common.theme.compose.pullRefreshIndicator
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
 import com.huanchengfly.tieba.post.ui.widgets.compose.Button
 import com.huanchengfly.tieba.post.ui.widgets.compose.Card
@@ -56,6 +51,7 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.FeedCardPlaceholder
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
 import com.huanchengfly.tieba.post.ui.widgets.compose.LoadMoreLayout
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
+import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
 import com.huanchengfly.tieba.post.ui.widgets.compose.TipScreen
 import com.huanchengfly.tieba.post.ui.widgets.compose.UserHeader
 import com.huanchengfly.tieba.post.ui.widgets.compose.states.StateScreen
@@ -63,12 +59,12 @@ import com.huanchengfly.tieba.post.utils.DateTimeUtils
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
-@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun UserPostPage(
     uid: Long,
     isThread: Boolean = true,
     fluid: Boolean = false,
+    avoidTopBar: Boolean = true,
     enablePullRefresh: Boolean = false,
     viewModel: UserPostViewModel = pageViewModel(key = if (isThread) "user_thread_$uid" else "user_post_$uid"),
 ) {
@@ -200,17 +196,13 @@ fun UserPostPage(
             }
         },
     ) {
-        val pullRefreshState = rememberPullRefreshState(
-            refreshing = isRefreshing,
-            onRefresh = ::reload
-        )
-
         val lazyListState = rememberLazyListState()
 
-        val pullRefreshModifier =
-            if (enablePullRefresh) Modifier.pullRefresh(pullRefreshState) else Modifier
-
-        Box(modifier = pullRefreshModifier) {
+        PullRefresh(
+            refreshing = isRefreshing,
+            onRefresh = ::reload,
+            enabled = enablePullRefresh,
+        ) {
             LoadMoreLayout(
                 isLoading = isLoadingMore,
                 onLoadMore = {
@@ -222,6 +214,7 @@ fun UserPostPage(
                 UserPostList(
                     data = posts,
                     fluid = fluid,
+                    avoidTopBar = avoidTopBar,
                     lazyListState = lazyListState,
                     onClickItem = { threadId, postId, isSubPost ->
                         if (postId == null) {
@@ -254,14 +247,6 @@ fun UserPostPage(
                     },
                 )
             }
-
-            PullRefreshIndicator(
-                refreshing = isRefreshing,
-                state = pullRefreshState,
-                modifier = Modifier.align(Alignment.TopCenter),
-                backgroundColor = ExtendedTheme.colors.pullRefreshIndicator,
-                contentColor = ExtendedTheme.colors.primary,
-            )
         }
     }
 }
@@ -270,6 +255,7 @@ fun UserPostPage(
 private fun UserPostList(
     data: ImmutableList<PostListItemData>,
     fluid: Boolean = false,
+    avoidTopBar: Boolean = true,
     lazyListState: LazyListState = rememberLazyListState(),
     onClickItem: (threadId: Long, postId: Long?, isSubPost: Boolean) -> Unit = { _, _, _ -> },
     onAgreeItem: (PostInfoList) -> Unit = {},
@@ -278,7 +264,11 @@ private fun UserPostList(
     onClickForum: (name: String) -> Unit = {},
     onClickOriginThread: (threadId: Long) -> Unit = {},
 ) {
-    MyLazyColumn(state = lazyListState) {
+    MyLazyColumn(
+        state = lazyListState,
+        // 页面已经用 padding 把正文推到栏下方时（个人主页），列表再避让一次就会多出一整条栏高的空档。
+        avoidTopBar = avoidTopBar,
+    ) {
         items(
             items = data,
             key = {

@@ -32,6 +32,15 @@ app/src/main/java/com/huanchengfly/tieba/post/
 └── utils/           # 账号、主题、图片、DataStore 封装（AppPreferencesUtils）
 ```
 
+仓库内与本规范配套的文档：
+
+| 文档 | 用途 | 维护时机 |
+|---|---|---|
+| `AGENTS.md` | 开发与发版规范（本文件） | 规范变更时 |
+| `debuglog.md` | **调试记录**：每个已修 bug 的现象、复现、定位过程、根因、修复与验证证据 | 修完一个 bug 追加一条 |
+| `docs/plan-m3-migration.md` | Material 3 迁移执行台账（阶段 / 门禁 / 进度） | 每阶段改完 |
+| `AI_CHANGELOG.md` | 面向用户的发版说明（CI 按 tag 抽取） | 发版时 |
+
 ---
 
 ## 2. 本地构建与验证
@@ -71,8 +80,17 @@ $env:ANDROID_SDK_ROOT="F:\Android\sdk"
 
 ### 2.1 调试热重载（Live Edit）
 
-仓库在 `.idea/other.xml` 里带上了 Compose Live Edit 配置（`LiveEditConfiguration`：`mode=LIVE_EDIT`、
-`leTriggerMode=AUTOMATIC`），Android Studio 打开工程即生效，不需要再手工勾选。
+**Live Edit 是 IDE 级（application）设置，不随仓库下发。** 它由 Android Studio 的
+`LiveEditApplicationConfiguration` 持有：`LiveEditApplicationConfiguration.getInstance()` 走
+`ApplicationManager.getApplication().getService(...)`，state 名 `LiveEditConfiguration`、storage
+`other.xml`，落盘在 `%APPDATA%\Google\AndroidStudio<版本>\options\other.xml`。工程内的
+`.idea/other.xml` 是 **project 级**文件，这个组件不会读它——写进去不生效（本仓库曾那样做，现已移除）。
+
+2026.x 里该开关默认就开着（`compose.deploy.live.edit.deploy.enable.default=COMPLETE`），所以
+`options/other.xml` 里通常看不到 `mode`——等于默认值时不落盘。查看/修改位置：
+
+    Settings → Editor → Compose Live Edit（中文界面：设置 → 编辑器 → Compose Live Edit）
+    「Live Edit」= 启用，「None」= 关闭；触发方式选「Push Edits Automatically」
 
 - 部署：用 Android Studio 的 Run / Debug 部署 `debug` 变体。**不要用 `adb install` 验证热重载**——
   Live Edit 走的是 IDE 与运行中进程的直连通道，手动装包只会看到旧字节码。
@@ -81,8 +99,8 @@ $env:ANDROID_SDK_ROOT="F:\Android\sdk"
 - 用法：改 `@Composable` 代码并保存，改动会自动推送到运行中的进程；改方法签名、改非 Compose 逻辑等
   场景 IDE 会提示需要重新部署。
 - 它不是验收手段：Live Edit 只加速本地看效果，交付前仍须跑 `:app:compileDebugKotlin`。
-- 改回手动触发：Settings → Build, Execution, Deployment → Live Edit，或把 `.idea/other.xml` 里的
-  `leTriggerMode` 改成 `ON_HOTKEY`（对应动作 `Compose.Live.Edit.Refresh`）。
+- 改回手动触发：同一设置页把触发方式换成「Push Edits Manually on Save」（`ON_SAVE`）或
+  「Push Edits Manually」（`ON_HOTKEY`，动作 `Compose.Live.Edit.Refresh`）。
 
 ---
 
@@ -192,6 +210,8 @@ FloatingBottomBar(color = floatingBarColor(ExtendedTheme.colors.bottomBar)) {
 
 8. 用户可在「自定义设置 → 顶栏 / 底栏跟随滑动隐藏」关闭该行为（`AppPreferencesUtils.hideBarsOnScroll`）。关闭后 `onScroll` 直接返回，不做任何动画。
 
+9. 页面级常驻：页头本身承担导航标识时（个人主页的头像 / ID / 返回 / 黑名单），进入页面用 `LocalBarsAutoHideState.current?.pin()`、离开时 `unpin()`（`DisposableEffect` 成对调用）。**不要**让这类页面的栏跟随滚动收起——正文仍按栏高留了 padding，栏滑走后状态栏下方会留下一条「有高度、没内容」的空白带。计数器语义，多个页面可同时持有。
+
 ---
 
 ## 7. 发版规范
@@ -284,3 +304,4 @@ git tag v4.0.64 && git push origin v4.0.64
 - [ ] UI 改动：新组件用 M3，且符合第 5 节的迁移方向（未新增 M2 组件、未混用两套 MaterialTheme）
 - [ ] 栏改动：顶栏/底栏是 overlay，隐藏时整块滑出、不留空白条；底栏为胶囊式悬浮
 - [ ] `git status` 中无意外文件（`local.properties`、构建产物、`.kotlin/sessions/` 等）
+- [ ] 修复的 bug 已在 `debuglog.md` 追加一条（现象 / 根因 / 修复 / 验证证据），状态与提交对应
