@@ -67,5 +67,10 @@ fun PullRefresh(
     )
 }
 
-/** M3 下拉指示器的容器直径：使指示器停在槽位顶端（顶栏下沿），不多空一截。 */
-private val RefreshIndicatorContainerSize = 40.dp
+/**
+ * M3 下拉指示器的容器直径：使指示器停在槽位顶端（顶栏下沿），不多空一截。
+ *
+ * `internal`：页面级浮层（例如推荐流的「更新了 N 条动态」提示）要排在指示器槽下方，
+ * 复用同一份尺寸，避免两处各写一个 40dp。
+ */
+internal val RefreshIndicatorContainerSize = 40.dp

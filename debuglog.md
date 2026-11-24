@@ -40,6 +40,8 @@
 | [DBG-002](#dbg-002-只看已关注的吧占据推荐流首行) | 2026-11-24 | 「只看已关注的吧」作为列表首项占掉一整行，未并入顶栏 | 已修复（未提交） |
 | [DBG-003](#dbg-003-个人主页滚动后顶栏消失--状态栏下方空白带) | 2026-11-24 | 个人主页滚动后头像 / ID / 返回 / 黑名单上滑消失，状态栏下方留一条空白带 | 已修复（未提交） |
 | [DBG-004](#dbg-004-个人主页页签与首条内容之间-290px-空白) | 2026-11-24 | 个人主页页签与首条内容之间一大块空白（用户截图红框） | 已修复（未提交） |
+| [DBG-005](#dbg-005-刷新结果提示更新了-n-条动态被顶栏盖住) | 2026-11-25 | 刷新后「更新了 N 条动态」提示落在顶栏底下，看不到 | 已修复（未提交） |
+| [DBG-006](#dbg-006-帖子详情吸顶页签随栏动画伸缩-内容被推着走-147px) | 2026-11-25 | 帖子详情滑动时内容多位移一截（吸顶页签的顶部留白随栏收起比例伸缩） | 已修复（未提交） |
 
 ---
 
@@ -245,6 +247,103 @@
 ### 遗留
 
 「关注吧」页签在测试账号上为空态（`这里什么都没有`），空间按同一路径修正但无真实数据对照，需非空账号复核。
+
+---
+
+## DBG-005 刷新结果提示「更新了 N 条动态」被顶栏盖住
+
+**状态**：已修复（未提交）
+
+### 现象
+
+「动态 → 推荐」下拉刷新成功后，预期的「更新了 N 条动态」胶囊提示看不到（用户反馈「被顶栏遮罩遮住」）。列表本身已滚到顶部、计数也在涨，只是提示不可见。
+
+### 复现
+
+「动态」页签 → 推荐 → 从内容区下拉刷新 → 刷新成功后 2s 内用 `uiautomator dump` 抓语义树，找 `text="更新了…"` 的节点与 `bounds`。
+
+### 定位
+
+1. `R.string.toast_feed_refresh` 只有一处使用：`PersonalizedPage.kt` 的 `RefreshTip`（`Box` + `align(TopCenter)` + `padding(top = 72.dp)`）。
+2. 语义树量栏：标题「动态」`y=94..178`、页签「关注/推荐/热榜」`y=247..299` → 顶栏完整高度（状态栏底色带 62px + 56dp 标题行 + 48dp 页签槽）≈ **336px = 128dp**。
+3. `72dp = 189px` 的偏移整段落在栏体 `0..336px` 内；而 `MyScaffold` 把 `topBar` 画在内容**之后**、栏底是 `floatingBarColor(topBar)` 不透明纯色 → 提示被整块盖住。
+
+### 根因
+
+顶栏是悬浮 overlay、正文从 `y=0` 起铺满整屏（AGENTS.md §5.3），提示却用**写死的 72dp** 而不是 `MyScaffold` 实测的栏高。栏高随次级槽（页签 / 搜索框）变化，写死的偏移必然在带页签的页面上失效。
+
+### 修复
+
+| 文件 | 改动 |
+|---|---|
+| `ui/page/main/explore/personalized/PersonalizedPage.kt` | `RefreshTip` 偏移改为 `LocalBarsContentPadding.current.calculateTopPadding() + RefreshIndicatorContainerSize + 12.dp`（栏下沿 + 下拉指示器槽 + 间距），KDoc 说明为何不能写死偏移 |
+| `ui/widgets/compose/PullToRefresh.kt` | `RefreshIndicatorContainerSize`（40dp）由 `private` 改为 `internal`，供页面级浮层复用同一份指示器槽高，避免两处各写一个 40dp |
+
+预留指示器槽是为了「2s 内二次下拉」时不出现圆形指示器压在提示上：M3 的指示器槽停在栏下沿、占 40dp，且指示器层绘制在内容之上。
+
+### 验证
+
+| 项 | 值 |
+|---|---|
+| 构建 | `:app:compileDebugKotlin` / `:app:assembleDebug` 均 `BUILD SUCCESSFUL` |
+| 安装 | `adb install -r 'debug-5.1.0(501000).apk'` → `Success` |
+| 提示文本 bounds（修后实测） | `[380,494][700,555]`；胶囊外沿上沿 = `494 - 21px(8dp 内边距)` = **473px** |
+| 栏底 | ≈336px（同一份语义树量得），间距 **137px ≈ 52dp** = 40dp 指示器槽 + 12dp |
+| 修前（按代码算） | 72dp = 189px，落在栏体 0..336px 内 → 不可见 |
+
+### 涉及文件
+
+`PersonalizedPage.kt`、`PullToRefresh.kt`。
+
+### 遗留
+
+「二次下拉时指示器不与提示重叠」由预留 40dp 槽位保证，未在设备上构造二次下拉实测。
+
+---
+## DBG-006 帖子详情吸顶页签随栏动画伸缩，内容被推着走 147px
+
+**状态**：已修复（未提交）
+
+### 现象
+
+帖子详情页上下滑动时，内容除了跟手滚动还会额外上下"跑"一截；观感是「帖子详情里多了一块会移动的空间」，一滑就整段内容跟着动，松手还会再补一段。
+
+### 复现
+
+进任意帖子 → 手指按住下滑约 60px（越过 touch slop，触发顶栏显隐）→ 用 `uiautomator dump` 对比同一批节点（楼层作者名 / `回复 N` 行）的 `bounds.y`。
+
+### 定位
+
+1. 先排除自绘位移：帖子页链路 `MyScaffold → PullRefresh → LoadMoreLayout → MyLazyColumn` 没有任何内容位移（M3 `PullToRefreshBox` 只位移指示器；`LoadMoreLayout` 只 `offset` 指示器；`BarsAutoHide` 只移动栏）。按住下拉 600px 时全部节点 `bounds` 不变，向上拖 400px 时按滚动正常位移 —— 说明下拉方向没有布局位移，与「某次更新后多出一块空间」的描述不吻合。
+2. 比对版本：`git diff f02a10ad..HEAD -- ThreadPage.kt` 里唯一与间距相关的改动，是吸顶页签 `Row` 多了 `.padding(top = stickyHeaderTopInset())`（a0486dd8 引入，随 v5.1.0 发布）；v5.0.0 时该 `Row` 只有 `.padding(8.dp)`。
+3. `stickyHeaderTopInset()` = `statusBar + (barHeight - statusBar) * (1 - hiddenFraction)`，读的是顶栏收起动画的进度值 —— 它把「栏的 220ms 绘制动画」变成了列表项**布局高度**在 63..210px 之间来回伸缩。
+
+### 根因
+
+用布局高度（padding）去跟随栏的收起比例，于是每次滑动触发栏显隐，列表里就多出 / 少掉最多 56dp（147px）的空间，后面的内容被这截空间推着走。违反 AGENTS.md §6.3「栏只改位置、不改尺寸」。
+
+### 修复
+
+| 文件 | 改动 |
+|---|---|
+| `ui/page/thread/ThreadPage.kt` | 吸顶页签 `Row` 的 `padding(top = stickyHeaderTopInset())` 改为 `padding(top = topBarInsetsHeight())`（`statusBars ∪ displayCutout`，常量，与栏收起比例无关）；`import` 同步替换；注释写明为何不能跟随 `hiddenFraction`，以及「顶栏展开时这条页签藏在栏后面」的既定代价（方案 B） |
+
+### 验证
+
+| 项 | 值 |
+|---|---|
+| 构建 | `:app:compileDebugKotlin`、`:app:assembleDebug` 均 `BUILD SUCCESSFUL`；`adb install -r` `Success`（`lastUpdateTime` 与 APK 一致） |
+| 修前（按住下滑 60px） | 同屏节点统一 **+187px** = 滚动 ≈40 + 凭空 **147px**（147px = 56dp 标题行） |
+| 修后（同一手法） | 「回复 55」+39px、「全部」+44px = 手指 60px − touch slop，**无额外位移** |
+| 吸顶页签位置 | 栏收起 / 展开下均为 `y=84`（状态栏 63 + 8dp 21），不随栏动画变 |
+
+### 涉及文件
+
+`ThreadPage.kt`。
+
+### 遗留
+
+同款写法仍在 `SubPostsPage`、`SearchUserPage`、`SearchForumPage`、`ForumSearchPostPage`、`HistoryListPage`（吸顶页签）与 `ForumPage`（页头 `followingPadding`）——同样把栏动画兑成布局高度，本次未改，待定是否一并按方案 B 处理。
 
 ---
 

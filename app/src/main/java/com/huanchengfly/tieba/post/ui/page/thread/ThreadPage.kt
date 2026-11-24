@@ -124,7 +124,7 @@ import com.huanchengfly.tieba.post.ui.common.theme.compose.threadBottomBar
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
 import com.huanchengfly.tieba.post.ui.page.ProvideNavigator
 import com.huanchengfly.tieba.post.ui.utils.bottomBarInsetsPadding
-import com.huanchengfly.tieba.post.ui.widgets.compose.stickyHeaderTopInset
+import com.huanchengfly.tieba.post.ui.utils.topBarInsetsHeight
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.BackNavigationIcon
 import com.huanchengfly.tieba.post.ui.widgets.compose.BlockTip
@@ -1340,6 +1340,10 @@ fun ThreadPage(
                                 stickyHeader(key = "ThreadHeader") {
                                     // 整块底色（含状态栏高度那一段）：否则滚动内容会从页签上方漏出来，
                                     // 看着像「一根杆子杵在页面中间」。外层 Box 负责铺满整宽，内层 Container 收窄正文。
+                                    // 留白只按状态栏（含挖孔）高度，**不跟随**顶栏收起比例：栏是纯绘制位移，
+                                    // 一旦让这里的 padding 跟着 hiddenFraction 变，栏的 220ms 动画就变成了列表里
+                                    // 一块会伸缩的布局高度（最多 56dp），滚动时整段内容被推着走（AGENTS.md §6.3）。
+                                    // 代价：顶栏展开时这条吸顶页签藏在栏后面，收起后才露出来。
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -1348,7 +1352,7 @@ fun ThreadPage(
                                     Container {
                                         Row(
                                             modifier = Modifier
-                                                .padding(top = stickyHeaderTopInset())
+                                                .padding(top = topBarInsetsHeight())
                                                 .padding(8.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
