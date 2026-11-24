@@ -19,6 +19,9 @@ output.json
 .gradle/
 **/build/
 
+# Kotlin 编译器会话文件（构建期生成，每次编译都会重建）
+.kotlin/
+
 # Local configuration file (sdk path, etc)
 local.properties
 
