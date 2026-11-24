@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Scaffold
+import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
@@ -55,7 +55,7 @@ import androidx.navigation.NavHostController
 fun AccountManagePage(
     navigator: NavHostController,
 ) {
-    Scaffold(
+    MyScaffold(
         backgroundColor = Color.Transparent,
         topBar = {
             TitleCentredToolbar(
@@ -77,7 +77,6 @@ fun AccountManagePage(
             dataStore = LocalContext.current.dataStore,
             dividerThickness = 0.dp,
             modifier = Modifier
-                .padding(paddingValues)
                 .fillMaxSize(),
         ) {
             prefsItem {

@@ -479,10 +479,12 @@ fun HomePage(
         )
         Box(
             modifier = Modifier
+                .fillMaxSize()
                 .pullRefresh(pullRefreshState)
-                .padding(contentPaddings)
         ) {
-            Column {
+            // 页面铺满整屏；只有这个不滚动的头部要避让顶栏，列表本身靠 contentPadding
+            // 避让（见 MyLazyColumn），这样滚动内容才能进入栏所在的区域。
+            Column(modifier = Modifier.padding(top = contentPaddings.calculateTopPadding())) {
                 SearchBox(modifier = Modifier.padding(bottom = 4.dp)) {
                     navigator.navigate("search")
                 }

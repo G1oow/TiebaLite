@@ -14,16 +14,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.Icon
@@ -36,14 +37,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
@@ -236,7 +245,7 @@ fun TitleCentredToolbar(
     TopAppBarContainer(
         topBar = {
             TopAppBar(
-                backgroundColor = ExtendedTheme.colors.topBar,
+                backgroundColor = Color.Transparent,
                 contentColor = ExtendedTheme.colors.onTopBar,
                 elevation = 0.dp
             ) {
@@ -299,7 +308,7 @@ fun Toolbar(
     title: @Composable (() -> Unit),
     navigationIcon: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
-    backgroundColor: Color = ExtendedTheme.colors.topBar,
+    backgroundColor: Color = Color.Transparent,
     contentColor: Color = ExtendedTheme.colors.onTopBar,
     content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
@@ -331,6 +340,19 @@ fun Toolbar(
 }
 
 
+
+/**
+ * 顶栏容器：「标题栏」+「次级槽（页签 / 搜索框）」。
+ *
+ * 收起行为：
+ * 1. **整条栏一起收起**：状态栏底色带、标题行、次级槽（页签 / 搜索框）作为一整块
+ *    向上滑出，收起后顶栏区域没有任何残留，直接是滚动内容；
+ * 2. 位移只发生在绘制层（`graphicsLayer`），本节点布局高度恒等于栏的完整高度，
+ *    所以 `MyScaffold` 算出的内容内边距不会逐帧变化（见 AGENTS.md §6 硬性约束 3）；
+ * 3. 底色画在被位移的节点之内，栏滑走后不会留一条盖住内容的底带（§6 硬性约束 4）。
+ *
+ * 顶栏在 [MyScaffold] 里是浮层：正文铺满整屏，收起后露出的正是滚动内容。
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TopAppBarContainer(
@@ -339,48 +361,61 @@ fun TopAppBarContainer(
     insets: Boolean = true,
     content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
-    val statusBarModifier = if (insets) {
-        // safeDrawing 的 Top 侧 = statusBars ∪ displayCutout：
-        // 全面屏的刘海/挖孔不会压住顶栏内容（shortEdges 下系统不替我们让位）。
-        Modifier.windowInsetsTopHeight(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+    val density = LocalDensity.current
+    val barsState = LocalBarsAutoHideState.current
+    val hiddenFraction = barsState?.hiddenFraction ?: 0f
+    val statusBarInset = if (insets) {
+        with(density) {
+            WindowInsets.statusBars.union(WindowInsets.displayCutout).getTop(density).toDp()
+        }
     } else {
-        Modifier
+        0.dp
     }
     val coroutineScope = rememberCoroutineScope()
-    Column(modifier) {
-        // 状态栏底色不参与隐藏：系统栏区域始终有背景，避免收起后透出内容。
-        Spacer(
-            modifier = statusBarModifier
-                .fillMaxWidth()
-                .background(color = ExtendedTheme.colors.topBar.calcStatusBarColor())
-        )
+    var barHeightPx by remember { mutableIntStateOf(0) }
+    // 深色 / 纯黑主题下栏底与页面底色几乎相同，整条顶栏读起来像「没渲染出来的黑边」。
+    // 按 §5.3 的浮层语义与底栏胶囊共用同一提亮规则，让顶栏成为可辨识的 Surface。
+    val barColor = floatingBarColor(ExtendedTheme.colors.topBar)
+
+    // 外层高度恒定（= 栏的完整高度），只有内层做位移：内容内边距因此不随动画变化。
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .onSizeChanged { barHeightPx = it.height }
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .barsAutoHide(BarEdge.Top)
+                .graphicsLayer { translationY = -barHeightPx * hiddenFraction },
         ) {
+            // 状态栏底色带：与栏体同色，跟着整条栏一起滑出。
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(statusBarInset)
+                    .background(barColor)
+            )
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(color = barColor)
                     .combinedClickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onDoubleClick = {
-                            Log.i("TopAppBarContainer", "TopAppBarContainer: onDoubleClick")
                             coroutineScope.emitGlobalEvent(GlobalEvent.ScrollToTop)
                         },
                         onClick = {},
                     ),
                 content = topBar
             )
-            content?.let {
+            if (content != null) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(color = ExtendedTheme.colors.topBar),
-                ) {
-                    content()
-                }
+                        .background(color = barColor),
+                    content = content
+                )
             }
         }
     }

@@ -163,10 +163,15 @@
 
     <style name="Base" />
 
+    <!-- MainActivityV2 的窗口主题：由 Splash 的 postSplashScreenTheme 应用。
+         它是主界面唯一的窗口主题来源，全面屏配置必须与 Base.AppTheme 保持一致，
+         否则主界面在非强制 edge-to-edge 的机型上会退回 default 刘海模式（横屏出黑边）。 -->
     <style name="Theme.NewAppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
         <item name="dialogCornerRadius">@dimen/radius</item>
     </style>
 
@@ -174,6 +179,8 @@
         <item name="android:windowBackground">@drawable/splash</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- 启动窗口同样要铺满全面屏，否则 API 27–35 的挖孔机会在 logo 四周留黑边。 -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
         <item name="windowSplashScreenBackground">@color/colorSplashBg</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_screen_anim</item>
         <item name="windowSplashScreenAnimationDuration">1000</item>

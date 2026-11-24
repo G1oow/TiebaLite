@@ -1,5 +1,10 @@
 package com.huanchengfly.tieba.post.ui.page.main
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
@@ -10,19 +15,26 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.BottomNavigation
-import androidx.compose.material.BottomNavigationItem
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
 import androidx.compose.material.LocalContentColor
@@ -34,16 +46,21 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
@@ -55,13 +72,19 @@ import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.common.theme.compose.White
 import com.huanchengfly.tieba.post.ui.utils.MainNavigationContentPosition
 import com.huanchengfly.tieba.post.ui.utils.bottomBarInsetsHeight
-import com.huanchengfly.tieba.post.ui.widgets.compose.BarEdge
-import com.huanchengfly.tieba.post.ui.widgets.compose.barsAutoHide
 import com.huanchengfly.tieba.post.ui.widgets.compose.AccountNavIcon
+import com.huanchengfly.tieba.post.ui.widgets.compose.FloatingBottomBar
+import com.huanchengfly.tieba.post.ui.widgets.compose.floatingBarColor
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
 import com.huanchengfly.tieba.post.utils.AccountUtil.LocalAccount
 import kotlinx.collections.immutable.ImmutableList
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.BottomNavigationItem
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import com.huanchengfly.tieba.post.ui.common.windowsizeclass.AdaptiveLayout
 
 enum class LayoutType {
     HEADER, CONTENT
@@ -372,6 +395,15 @@ fun BottomNavigationDivider(
     }
 }
 
+/** 胶囊内单个入口的高度（不含胶囊上下内边距）。 */
+private val FloatingItemHeight = 56.dp
+
+/**
+ * 主界面底部导航（胶囊悬浮样式）。
+ *
+ * 视觉与位移都由 [FloatingBottomBar] 统一提供：胶囊底色、圆角、阴影、
+ * 以及「整块滑出屏幕」的隐藏行为；这里只负责四个导航入口。
+ */
 @OptIn(ExperimentalAnimationGraphicsApi::class)
 @Composable
 fun BottomNavigation(
@@ -379,72 +411,111 @@ fun BottomNavigation(
     onChangePosition: (position: Int) -> Unit,
     onReselected: (position: Int) -> Unit,
     navigationItems: ImmutableList<NavigationItem>,
-    themeColors: ExtendedColors = ExtendedTheme.colors
+    themeColors: ExtendedColors = ExtendedTheme.colors,
 ) {
-    Column {
-        // 栏体跟随滑动隐藏；系统手势热区占位留在外面，收起后仍保护底部手势区。
-        // 背景必须画在 barsAutoHide 之内：栏只做位移不改尺寸，背景留在外层会盖住滑出来的内容。
-        Column(
+    FloatingBottomBar(color = floatingBarColor(themeColors.bottomBar)) {
+        Row(
             modifier = Modifier
-                .barsAutoHide(BarEdge.Bottom)
-                .background(themeColors.bottomBar)
+                .fillMaxWidth()
+                .height(FloatingItemHeight),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            BottomNavigationDivider(themeColors)
-            BottomNavigation(
-                backgroundColor = themeColors.bottomBar,
-                elevation = 0.dp,
-            ) {
-                navigationItems.fastForEachIndexed { index, navigationItem ->
-                    BottomNavigationItem(
-                        selected = index == currentPosition,
-                        onClick = {
-                            if (index == currentPosition) {
-                                onReselected(index)
-                            } else {
-                                onChangePosition(index)
-                            }
-                            navigationItem.onClick?.invoke()
-                        },
-                        icon = {
-                            Box {
-                                Icon(
-                                    painter = rememberAnimatedVectorPainter(
-                                        animatedImageVector = navigationItem.icon(),
-                                        atEnd = index == currentPosition
-                                    ),
-                                    contentDescription = navigationItem.title(index == currentPosition),
-                                    modifier = Modifier.size(24.dp),
+            navigationItems.fastForEachIndexed { index, navigationItem ->
+                FloatingNavigationItem(
+                    modifier = Modifier.weight(1f),
+                    label = navigationItem.title(index == currentPosition),
+                    selected = index == currentPosition,
+                    onClick = {
+                        if (index == currentPosition) {
+                            onReselected(index)
+                        } else {
+                            onChangePosition(index)
+                        }
+                        navigationItem.onClick?.invoke()
+                    },
+                    icon = {
+                        Box {
+                            Icon(
+                                painter = rememberAnimatedVectorPainter(
+                                    animatedImageVector = navigationItem.icon(),
+                                    atEnd = index == currentPosition
+                                ),
+                                contentDescription = navigationItem.title(index == currentPosition),
+                                modifier = Modifier.size(24.dp),
+                            )
+                            if (navigationItem.badge) {
+                                Text(
+                                    textAlign = TextAlign.Center,
+                                    fontSize = 10.sp,
+                                    color = White,
+                                    text = navigationItem.badgeText ?: "",
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .clip(CircleShape)
+                                        .align(Alignment.TopEnd)
+                                        .background(
+                                            color = MaterialTheme.colors.secondary,
+                                            shape = CircleShape
+                                        ),
                                 )
-                                if (navigationItem.badge) {
-                                    Text(
-                                        textAlign = TextAlign.Center,
-                                        fontSize = 10.sp,
-                                        color = White,
-                                        text = navigationItem.badgeText ?: "",
-                                        modifier = Modifier
-                                            .size(14.dp)
-                                            .clip(CircleShape)
-                                            .align(Alignment.TopEnd)
-                                            .background(
-                                                color = MaterialTheme.colors.secondary,
-                                                shape = CircleShape
-                                            ),
-                                    )
-                                }
                             }
-                        },
-                        selectedContentColor = MaterialTheme.colors.secondary,
-                        unselectedContentColor = themeColors.unselected,
-                        alwaysShowLabel = false
+                        }
+                    },
+                    selectedContentColor = MaterialTheme.colors.secondary,
+                    unselectedContentColor = themeColors.unselected,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 胶囊内的单个入口：图标 + 选中态短标题。
+ *
+ * 标题只在选中态出现，不占固定标题行，胶囊因此能做得比标准底栏矮；
+ * 未选中时只留图标，靠 [Role.Tab] + `selectable` 保证无障碍语义。
+ */
+@Composable
+private fun FloatingNavigationItem(
+    modifier: Modifier,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit,
+    selectedContentColor: Color,
+    unselectedContentColor: Color,
+) {
+    val contentColor by animateColorAsState(
+        targetValue = if (selected) selectedContentColor else unselectedContentColor
+    )
+    Row(
+        modifier = modifier
+            .fillMaxHeight()
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                role = Role.Tab,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            )
+            .padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CompositionLocalProvider(LocalContentColor provides contentColor) {
+            icon()
+            AnimatedVisibility(visible = selected) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.button,
+                        maxLines = 1,
                     )
                 }
             }
         }
-        Spacer(
-            modifier = Modifier
-                .height(bottomBarInsetsHeight())
-                .background(themeColors.bottomBar)
-        )
     }
 }
 

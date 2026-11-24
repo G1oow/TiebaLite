@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.LocalContentColor
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Scaffold
+import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
@@ -100,7 +100,7 @@ fun SettingsPage(
     navigator: NavHostController,
 ) {
     ProvideNavigator(navigator = navigator) {
-        Scaffold(
+        MyScaffold(
             backgroundColor = Color.Transparent,
             topBar = {
                 TitleCentredToolbar(
@@ -120,7 +120,6 @@ fun SettingsPage(
                 dataStore = LocalContext.current.dataStore,
                 dividerThickness = 0.dp,
                 modifier = Modifier
-                    .padding(it)
                     .fillMaxSize(),
             ) {
                 prefsItem {

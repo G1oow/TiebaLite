@@ -82,7 +82,6 @@ fun CustomSettingsPage(
             dataStore = context.dataStore,
             dividerThickness = 0.dp,
             modifier = Modifier
-                .padding(paddingValues)
                 .fillMaxSize(),
         ) {
             prefsItem {

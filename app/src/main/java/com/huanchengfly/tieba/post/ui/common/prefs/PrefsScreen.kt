@@ -1,10 +1,7 @@
 package com.huanchengfly.tieba.post.ui.common.prefs
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ProvidableCompositionLocal
@@ -15,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.huanchengfly.tieba.post.ui.widgets.compose.Container
+import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
 
 lateinit var LocalPrefsDataStore: ProvidableCompositionLocal<DataStore<Preferences>>
 
@@ -22,7 +20,7 @@ lateinit var LocalPrefsDataStore: ProvidableCompositionLocal<DataStore<Preferenc
  * Main preference screen which holds [PrefsListItem]s
  *
  * @param dataStore DataStore which will be used to save all the preferences
- * @param modifier Modifier applied to the [LazyColumn] holding the list of Prefs
+ * @param modifier Modifier applied to the [MyLazyColumn] holding the list of Prefs
  *
  */
 @Composable
@@ -39,24 +37,25 @@ fun PrefsScreen(
     // Now the dataStore can be accessed by calling LocalPrefsDataStore.current from any child Pref
     CompositionLocalProvider(LocalPrefsDataStore provides dataStore) {
         Container {
-            Column {
-                Spacer(modifier = Modifier.height(12.dp))
-                LazyColumn(modifier = modifier.fillMaxSize()) {
+            // 用 MyLazyColumn（而不是裸 LazyColumn）：它会自动合并 LocalBarsContentPadding，
+            // 设置项因此能滚进悬浮顶栏 / 胶囊底栏所在区域，而不是被整页内缩。
+            MyLazyColumn(
+                modifier = modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 12.dp),
+            ) {
+                items(prefsScope.prefsItems.size) { index ->
+                    prefsScope.getPrefsItem(index)()
 
-                    items(prefsScope.prefsItems.size) { index ->
-                        prefsScope.getPrefsItem(index)()
-
-                        if (dividerThickness != 0.dp
-                            && index != prefsScope.prefsItems.size - 1
-                            && !prefsScope.headerIndexes.contains(index)
-                            && !prefsScope.headerIndexes.contains(index + 1)
-                            && !prefsScope.footerIndexes.contains(index)
-                        ) {
-                            Divider(
-                                thickness = dividerThickness,
-                                indent = dividerIndent
-                            )
-                        }
+                    if (dividerThickness != 0.dp
+                        && index != prefsScope.prefsItems.size - 1
+                        && !prefsScope.headerIndexes.contains(index)
+                        && !prefsScope.headerIndexes.contains(index + 1)
+                        && !prefsScope.footerIndexes.contains(index)
+                    ) {
+                        Divider(
+                            thickness = dividerThickness,
+                            indent = dividerIndent
+                        )
                     }
                 }
             }

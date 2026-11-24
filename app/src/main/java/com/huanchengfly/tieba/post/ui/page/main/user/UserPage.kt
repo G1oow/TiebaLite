@@ -25,7 +25,7 @@ import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
-import androidx.compose.material.Scaffold
+import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
@@ -63,6 +63,8 @@ import com.huanchengfly.tieba.post.ui.common.theme.compose.pullRefreshIndicator
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.ConfirmDialog
+import com.huanchengfly.tieba.post.ui.widgets.compose.BarsBottomSpacer
+import com.huanchengfly.tieba.post.ui.widgets.compose.BarsTopSpacer
 import com.huanchengfly.tieba.post.ui.widgets.compose.HorizontalDivider
 import com.huanchengfly.tieba.post.ui.widgets.compose.ListMenuItem
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
@@ -277,7 +279,7 @@ fun UserPage(
         Text(text = stringResource(id = R.string.message_dialog_follow_system_night))
     }
 
-    Scaffold(
+    MyScaffold(
         backgroundColor = Color.Transparent,
         modifier = Modifier
             .statusBarsPadding()
@@ -289,7 +291,6 @@ fun UserPage(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(contentPaddings)
                 .pullRefresh(pullRefreshState),
         ) {
             Column(
@@ -297,6 +298,7 @@ fun UserPage(
                     .verticalScroll(state = rememberScrollState())
                     .fillMaxSize()
             ) {
+                BarsTopSpacer()
                 if (account != null) {
                     val allAccounts = AllAccounts.current
                     var showAccountMenu by remember { mutableStateOf(false) }
@@ -452,12 +454,15 @@ fun UserPage(
                     text = stringResource(id = R.string.my_info_about),
                     onClick = { navigator.navigate("settings/about") },
                 )
+                BarsBottomSpacer()
             }
 
             PullRefreshIndicator(
                 refreshing = isLoading,
                 state = pullRefreshState,
-                modifier = Modifier.align(Alignment.TopCenter),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = contentPaddings.calculateTopPadding()),
                 backgroundColor = ExtendedTheme.colors.pullRefreshIndicator,
                 contentColor = ExtendedTheme.colors.primary,
             )

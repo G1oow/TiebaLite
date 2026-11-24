@@ -30,7 +30,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Card
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
-import androidx.compose.material.Scaffold
+import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PhotoCamera
@@ -134,14 +134,6 @@ class EditProfileActivity : BaseActivity() {
                                 .withOptions(UCrop.Options().apply {
                                     setShowCropFrame(true)
                                     setShowCropGrid(true)
-                                    setStatusBarColor(
-                                        ColorUtils.getDarkerColor(
-                                            ThemeUtils.getColorByAttr(
-                                                this@EditProfileActivity,
-                                                R.attr.colorPrimary
-                                            )
-                                        )
-                                    )
                                     setToolbarColor(
                                         ThemeUtils.getColorByAttr(
                                             this@EditProfileActivity,
@@ -482,7 +474,7 @@ fun PageEditProfile(
         val birthdayShowStatus by remember { mutableStateOf(uiState.birthdayShowStatus) }
         var intro by remember { mutableStateOf(uiState.intro) }
         var nickName by remember { mutableStateOf(uiState.nickName) }
-        Scaffold(
+        MyScaffold(
             topBar = {
                 Toolbar(
                     title = stringResource(id = R.string.title_activity_edit_profile),
@@ -563,7 +555,7 @@ fun PageEditProfile(
             }
         }
     } else {
-        Scaffold(
+        MyScaffold(
             topBar = {
                 Toolbar(
                     title = stringResource(id = R.string.title_activity_edit_profile),

@@ -72,7 +72,6 @@ fun OKSignSettingsPage(
             dataStore = dataStore,
             dividerThickness = 0.dp,
             modifier = Modifier
-                .padding(paddingValues)
                 .fillMaxSize(),
         ) {
             prefsItem {

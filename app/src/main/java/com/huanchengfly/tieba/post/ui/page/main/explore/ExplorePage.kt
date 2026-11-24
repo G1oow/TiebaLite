@@ -2,12 +2,13 @@ package com.huanchengfly.tieba.post.ui.page.main.explore
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Scaffold
+import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import androidx.compose.material.Tab
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
@@ -143,7 +144,7 @@ fun ExplorePage() {
         coroutineScope.emitGlobalEvent(GlobalEvent.Refresh(pages[pagerState.currentPage].id))
     }
 
-    Scaffold(
+    MyScaffold(
         backgroundColor = Color.Transparent,
         topBar = {
             Toolbar(
@@ -162,9 +163,11 @@ fun ExplorePage() {
             }
         },
         modifier = Modifier.fillMaxSize(),
-    ) { paddingValues ->
+    ) { _ ->
+        // 正文铺满整屏：栏占位由各页自己的 MyLazyColumn 依 LocalBarsContentPadding 合并，
+        // 不能再塞进 pager 的 contentPadding，否则整页会被内缩、栏所在区域永远空白。
         LazyLoadHorizontalPager(
-            contentPadding = paddingValues,
+            contentPadding = PaddingValues(0.dp),
             state = pagerState,
             key = { pages[it].id },
             modifier = Modifier.fillMaxSize(),

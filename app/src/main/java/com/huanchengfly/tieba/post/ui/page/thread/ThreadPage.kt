@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -37,8 +38,9 @@ import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.ModalBottomSheetLayout
-import androidx.compose.material.ModalBottomSheetValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material.ProvideTextStyle
 import androidx.compose.material.SnackbarDuration
 import androidx.compose.material.SnackbarResult
@@ -64,7 +66,6 @@ import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
-import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -129,14 +130,12 @@ import com.huanchengfly.tieba.post.ui.page.ProvideNavigator
 import com.huanchengfly.tieba.post.ui.utils.bottomBarInsetsPadding
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.BackNavigationIcon
-import com.huanchengfly.tieba.post.ui.widgets.compose.BarEdge
 import com.huanchengfly.tieba.post.ui.widgets.compose.BlockTip
 import com.huanchengfly.tieba.post.ui.widgets.compose.BlockableContent
 import com.huanchengfly.tieba.post.ui.widgets.compose.Button
 import com.huanchengfly.tieba.post.ui.widgets.compose.Card
 import com.huanchengfly.tieba.post.ui.widgets.compose.Chip
 import com.huanchengfly.tieba.post.ui.widgets.compose.ConfirmDialog
-import com.huanchengfly.tieba.post.ui.widgets.compose.barsAutoHide
 import com.huanchengfly.tieba.post.ui.widgets.compose.Container
 import com.huanchengfly.tieba.post.ui.widgets.compose.ErrorScreen
 import com.huanchengfly.tieba.post.ui.widgets.compose.HorizontalDivider
@@ -147,6 +146,8 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.LongClickMenu
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyBackHandler
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
+import com.huanchengfly.tieba.post.ui.widgets.compose.FloatingBottomBar
+import com.huanchengfly.tieba.post.ui.widgets.compose.floatingBarColor
 import com.huanchengfly.tieba.post.ui.widgets.compose.OriginThreadCard
 import com.huanchengfly.tieba.post.ui.widgets.compose.PromptDialog
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
@@ -467,7 +468,7 @@ private fun ThreadLoadMoreIndicator(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterialApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadPage(
     threadId: Long,
@@ -645,10 +646,8 @@ fun ThreadPage(
     var waitLoadSuccessAndScrollToFirstReply by remember { mutableStateOf(scrollToReply) }
 
     val lazyListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
-    val bottomSheetState = rememberModalBottomSheetState(
-        initialValue = ModalBottomSheetValue.Hidden,
-        skipHalfExpanded = true
-    )
+    // 帖子菜单（M3 ModalBottomSheet）：只有点底栏「⋮」时才创建，关闭即销毁。
+    var showThreadMenu by remember { mutableStateOf(false) }
     val lastVisibilityPost by remember {
         derivedStateOf {
             data.firstOrNull { (post) ->
@@ -664,19 +663,11 @@ fun ThreadPage(
     }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
-    val openBottomSheet = {
-        coroutineScope.launch {
-            bottomSheetState.show()
-        }
-    }
-    val closeBottomSheet = {
-        coroutineScope.launch {
-            bottomSheetState.hide()
-        }
-    }
+    val openBottomSheet = { showThreadMenu = true }
+    val closeBottomSheet = { showThreadMenu = false }
 
     MyBackHandler(
-        enabled = bottomSheetState.isVisible,
+        enabled = showThreadMenu,
         currentScreenRoute = "thread/{threadId}"
     ) {
         closeBottomSheet()
@@ -759,7 +750,7 @@ fun ThreadPage(
         Text(text = stringResource(R.string.message_update_collect_mark, readFloorBeforeBack))
     }
     MyBackHandler(
-        enabled = isCollected && !bottomSheetState.isVisible,
+        enabled = isCollected && !showThreadMenu,
         currentScreenRoute = "thread/{threadId}"
     ) {
         readFloorBeforeBack = lastVisibilityPost?.get { floor } ?: 0
@@ -1104,7 +1095,7 @@ fun ThreadPage(
                             )
                         },
                         onClickMore = {
-                            if (bottomSheetState.isVisible) {
+                            if (showThreadMenu) {
                                 closeBottomSheet()
                             } else {
                                 openBottomSheet()
@@ -1121,11 +1112,9 @@ fun ThreadPage(
                     )
                 },
             ) { paddingValues ->
-                ModalBottomSheetLayout(
-                    sheetState = bottomSheetState,
-                    sheetShape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
-                    sheetBackgroundColor = ExtendedTheme.colors.windowBackground,
-                    sheetContent = {
+                // 菜单内容按需组合：只有 showThreadMenu 为真时才挂 M3 ModalBottomSheet，
+                // 关闭时完全不参与布局，不会像 Material2 的 sheet 那样在底部漏出一行。
+                val threadMenuContent: @Composable () -> Unit = {
                         ThreadMenu(
                             isSeeLz = isSeeLz,
                             isCollected = isCollected,
@@ -1234,11 +1223,10 @@ fun ThreadPage(
                                 .padding(vertical = 16.dp)
                                 .defaultMinSize(minHeight = 1.dp)
                         )
-                    },
-                    scrimColor = Color.Transparent,
+                }
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(paddingValues)
                 ) {
                     Box(
                         modifier = Modifier
@@ -1287,6 +1275,7 @@ fun ThreadPage(
                         ) {
                             MyLazyColumn(
                                 state = lazyListState,
+                                // 栏占位由 MyLazyColumn 依 LocalBarsContentPadding 自动合并。
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 item(key = "FirstPost") {
@@ -1531,6 +1520,20 @@ fun ThreadPage(
                         )
                     }
                 }
+                // 帖子菜单：只有点击底栏「⋮」时才创建，关闭后立即销毁。
+                // 不用 Material2 的 ModalBottomSheetLayout——它在隐藏态仍会露出最后一行
+                // （只看楼主 / 未收藏），看起来像底栏上方多了一条卡片。
+                if (showThreadMenu) {
+                    ModalBottomSheet(
+                        onDismissRequest = { showThreadMenu = false },
+                        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
+                        containerColor = ExtendedTheme.colors.windowBackground,
+                        scrimColor = Color.Black.copy(alpha = 0.32f),
+                    ) {
+                        threadMenuContent()
+                    }
+                }
             }
         }
     }
@@ -1594,86 +1597,67 @@ private fun BottomBar(
     hasAgreed: Boolean = false,
     agreeNum: Long = 0,
 ) {
-    Column {
-        // 回复栏跟随滑动隐藏；下方手势热区占位不参与隐藏。
-        // 背景画在 barsAutoHide 之内，栏位移时背景一起走，才会露出下面的内容。
-        Column(
+    FloatingBottomBar(color = floatingBarColor(ExtendedTheme.colors.threadBottomBar)) {
+        Row(
             modifier = Modifier
-                .barsAutoHide(BarEdge.Bottom)
-                .background(ExtendedTheme.colors.threadBottomBar)
+                .height(IntrinsicSize.Min)
+                .then(modifier)
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .height(IntrinsicSize.Min)
-                    .then(modifier)
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (user.get { is_login } == 1 && !LocalContext.current.appPreferences.hideReply) {
-                    Avatar(
-                        data = StringUtil.getAvatarUrl(user.get { portrait }),
-                        size = Sizes.Tiny,
-                        contentDescription = user.get { name },
-                        modifier = Modifier
-                            .padding(vertical = 8.dp)
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .padding(vertical = 8.dp)
-                            .weight(1f)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(ExtendedTheme.colors.bottomBarSurface)
-                            .clickable(onClick = onClickReply)
-                            .padding(8.dp),
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.tip_reply_thread),
-                            style = MaterialTheme.typography.caption,
-                            color = ExtendedTheme.colors.onBottomBarSurface,
-                        )
-                    }
-                } else {
-                    Spacer(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp)
-                    )
-                }
-
-                BottomBarAgreeBtn(
-                    hasAgreed = hasAgreed,
-                    agreeNum = agreeNum,
-                    onClick = onAgree,
-                    modifier = Modifier.fillMaxHeight()
+            if (user.get { is_login } == 1 && !LocalContext.current.appPreferences.hideReply) {
+                Avatar(
+                    data = StringUtil.getAvatarUrl(user.get { portrait }),
+                    size = Sizes.Tiny,
+                    contentDescription = user.get { name },
+                    modifier = Modifier
+                        .padding(vertical = 8.dp)
                 )
 
-                Box(
+                Row(
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .clickable(onClick = onClickMore)
-                        .padding(horizontal = 4.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(vertical = 8.dp)
+                        .weight(1f)
+                        .clip(CircleShape)
+                        .background(ExtendedTheme.colors.bottomBarSurface)
+                        .clickable(onClick = onClickReply)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.MoreVert,
-                        contentDescription = stringResource(id = R.string.btn_more),
-                        tint = ExtendedTheme.colors.textSecondary,
+                    Text(
+                        text = stringResource(id = R.string.tip_reply_thread),
+                        style = MaterialTheme.typography.caption,
+                        color = ExtendedTheme.colors.onBottomBarSurface,
                     )
                 }
+            } else {
+                Spacer(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp)
+                )
             }
-        }
 
-        Box(
-            modifier = Modifier
-                .requiredHeightIn(min = if (LocalContext.current.appPreferences.liftUpBottomBar) 16.dp else 0.dp)
-        ) {
-            Spacer(
-                modifier = Modifier
-                    .bottomBarInsetsPadding()
-                    .background(ExtendedTheme.colors.threadBottomBar)
+            BottomBarAgreeBtn(
+                hasAgreed = hasAgreed,
+                agreeNum = agreeNum,
+                onClick = onAgree,
+                modifier = Modifier.fillMaxHeight()
             )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .clickable(onClick = onClickMore)
+                    .padding(horizontal = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.MoreVert,
+                    contentDescription = stringResource(id = R.string.btn_more),
+                    tint = ExtendedTheme.colors.textSecondary,
+                )
+            }
         }
     }
 }
