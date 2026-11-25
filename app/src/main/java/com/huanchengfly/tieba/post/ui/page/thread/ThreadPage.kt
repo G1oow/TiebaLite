@@ -76,14 +76,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
@@ -93,6 +88,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEach
+import androidx.compose.ui.zIndex
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
@@ -145,6 +141,8 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.HorizontalDivider
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
 import com.huanchengfly.tieba.post.ui.widgets.compose.ListMenuItem
 import com.huanchengfly.tieba.post.ui.widgets.compose.LoadMoreLayout
+import com.huanchengfly.tieba.post.ui.widgets.compose.LocalBarsAutoHideState
+import com.huanchengfly.tieba.post.ui.widgets.compose.LocalTopBarHeight
 import com.huanchengfly.tieba.post.ui.widgets.compose.LongClickMenu
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyBackHandler
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
@@ -180,7 +178,9 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlin.concurrent.thread
 import kotlin.math.max
-import kotlin.math.floor
+
+/** 「回复 N / 全部 / 只看楼主」吸顶页签在列表里的 key，页签自己要靠它查回当前位置。 */
+private const val ThreadHeaderKey = "ThreadHeader"
 
 private fun getDescText(
     time: Long?,
@@ -1333,26 +1333,41 @@ fun ThreadPage(
                                                                 .padding(16.dp)
                                                         )
                                                     }
-
-                                                PixelSnappedDivider(
-                                                    modifier = Modifier
-                                                        .padding(horizontal = 16.dp)
-                                                        .padding(bottom = 8.dp)
-                                                )
                                             }
                                         }
                                     }
                                 }
-                                stickyHeader(key = "ThreadHeader") {
+                                stickyHeader(key = ThreadHeaderKey) {
                                     // 整块底色（含状态栏高度那一段）：否则滚动内容会从页签上方漏出来，
                                     // 看着像「一根杆子杵在页面中间」。外层 Box 负责铺满整宽，内层 Container 收窄正文。
-                                    // 留白只按状态栏（含挖孔）高度，**不跟随**顶栏收起比例：栏是纯绘制位移，
-                                    // 一旦让这里的 padding 跟着 hiddenFraction 变，栏的 220ms 动画就变成了列表里
-                                    // 一块会伸缩的布局高度（最多 56dp），滚动时整段内容被推着走（AGENTS.md §6.3）。
-                                    // 代价：顶栏展开时这条吸顶页签藏在栏后面，收起后才露出来。
+                                    // 布局上的留白只按状态栏（含挖孔）高度，**不跟随**顶栏收起比例：一旦让 padding
+                                    // 跟着 hiddenFraction 变，栏的 220ms 动画就变成了列表里一块会伸缩的布局高度
+                                    // （最多 56dp），滚动时整段内容被推着走（AGENTS.md §6.3）。
+                                    // 与顶栏的联动只走绘制位移：吸顶时它贴在视口顶边，顶栏展开会把它整条盖住，
+                                    // 所以按栏露出的比例把它推到栏下沿；栏收起后位移归零，回到状态栏下方。
+                                    // 页签还在列表流里、离顶边够远时不用推（naturalTop 抵掉位移），否则会平白压住下一楼。
+                                    val barsAutoHideState = LocalBarsAutoHideState.current
+                                    val topBarHeight = LocalTopBarHeight.current
+                                    val statusBarInset = topBarInsetsHeight()
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
+                                            // 列表只在吸顶时把它画在最上层；刚离开吸顶、还被推着的那一段里它是普通
+                                            // item，会被后一楼盖住，所以自己抬高一层。
+                                            .zIndex(1f)
+                                            .graphicsLayer {
+                                                val layoutInfo = lazyListState.layoutInfo
+                                                // 换算成相对列表视口顶边的位置；吸顶后恒为 0。
+                                                val naturalTop = layoutInfo.visibleItemsInfo
+                                                    .firstOrNull { it.key == ThreadHeaderKey }
+                                                    ?.let { it.offset - layoutInfo.viewportStartOffset }
+                                                    ?.coerceAtLeast(0)
+                                                    ?: 0
+                                                val followable = (topBarHeight - statusBarInset).coerceAtLeast(0.dp)
+                                                val shownFraction = 1f - (barsAutoHideState?.hiddenFraction ?: 0f)
+                                                translationY =
+                                                    (followable.toPx() * shownFraction - naturalTop).coerceAtLeast(0f)
+                                            }
                                             .background(MaterialTheme.colors.background)
                                     ) {
                                     Container {
@@ -2203,32 +2218,4 @@ private fun ThreadMenu(
         // 弹层底部避让手势热区：内容整体抬出手势热区，防止点击穿透
         Spacer(modifier = Modifier.bottomBarInsetsPadding())
     }
-}
-
-/**
- * 与 `VerticalDivider(thickness = 2.dp)` **同位置、同尺寸**的横线，只把绘制吸附到整物理像素。
- *
- * 2.dp 在 420dpi 上是 5.25px：直接铺底色时上下边缘落在小数像素上，列表滚动时每帧的小数
- * 部分都在变，抗锯齿覆盖率随之变化 —— 看起来就是这条线自己在抖 / 闪 1-2px。
- * 这里高度取整到 5px，并把绘制起点吸附到窗口坐标的整像素边界，位置与尺寸都不变。
- */
-@Composable
-private fun PixelSnappedDivider(modifier: Modifier = Modifier) {
-    val dividerColor = ExtendedTheme.colors.divider
-    val drawHeightPx = with(LocalDensity.current) { floor(2.dp.toPx()).coerceAtLeast(1f) }
-    var yInWindow = 0f
-    Box(
-        modifier
-            .fillMaxWidth()
-            .height(2.dp)
-            .onGloballyPositioned { yInWindow = it.positionInWindow().y }
-            .drawBehind {
-                val snap = yInWindow - floor(yInWindow)
-                drawRect(
-                    color = dividerColor,
-                    topLeft = Offset(0f, -snap),
-                    size = Size(size.width, drawHeightPx),
-                )
-            }
-    )
 }
