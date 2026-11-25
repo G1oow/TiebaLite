@@ -45,26 +45,31 @@ app/src/main/java/com/huanchengfly/tieba/post/
 
 ## 2. 本地构建与验证
 
-构建工具链不依赖 Android Studio，可直接用命令行 Gradle：
+用仓库自带的 Gradle wrapper 在命令行构建，不需要打开 Android Studio（JDK 借用它自带的 JBR）：
 
 ```powershell
-$env:JAVA_HOME="F:\Android\jdk"
+$env:JAVA_HOME="F:\Android\jbr"
 $env:GRADLE_USER_HOME="F:\Android\gradle-home"
-$env:ANDROID_HOME="F:\Android\sdk"
-$env:ANDROID_SDK_ROOT="F:\Android\sdk"
+$env:ANDROID_HOME="F:\androidsdk"
+$env:ANDROID_SDK_ROOT="F:\androidsdk"
 
 # 快速编译校验（改完 Kotlin 必跑，约 1-4 分钟）
-& F:\Android\gradle-dist\gradle-9.9.2\bin\gradle.bat --no-daemon :app:compileDebugKotlin --console=plain
+& .\gradlew.bat --no-daemon :app:compileDebugKotlin --console=plain
 
 # 发版前：签名校验（需要口令，见第 7 节）
-& F:\Android\gradle-dist\gradle-9.9.2\bin\gradle.bat --no-daemon :app:checkReleaseSigning --console=plain
+& .\gradlew.bat --no-daemon :app:checkReleaseSigning --console=plain
 
 # 完整 release 构建
-& F:\Android\gradle-dist\gradle-9.9.2\bin\gradle.bat --no-daemon :app:assembleRelease --console=plain
+& .\gradlew.bat --no-daemon :app:assembleRelease --console=plain
 ```
 
-- `local.properties` 需含 `sdk.dir`（已被 `.gitignore` 忽略，不要提交）。
-- 本机没有 `gradle` 命令、`keytool` 不在 PATH 时，用上面的绝对路径。
+- 上面是 2026-11-26 起这台机器的实际路径：Android Studio 装在 `F:\Android`（JBR 是 JDK 25），SDK 在 `F:\androidsdk`。
+  换机器时只改这四个环境变量，命令不变。
+- `local.properties` 需含 `sdk.dir`（已被 `.gitignore` 忽略，不要提交），与 `ANDROID_HOME` 指向同一目录。
+- 首次构建 wrapper 会联网下载 Gradle 9.9.2 与全部依赖到 `GRADLE_USER_HOME`（约 2GB），
+  AGP 还会按 `compileSdk` 自动装缺失的 SDK 平台；之后可离线。
+- `keytool` / `apksigner` 不在 PATH：分别用 `F:\Android\jbr\bin\keytool.exe`、
+  `F:\androidsdk\build-tools\<版本>\apksigner.bat`。
 - **验证以实际命令输出为准**：`BUILD SUCCESSFUL` 才算通过；不要用「看起来对」代替编译。
 - **Windows 盘符约束（Glide 5 + KSP2）**：`GRADLE_USER_HOME` 必须与工程在同一个盘符，否则
   `:app:kspDebugKotlin` 直接失败：`IllegalArgumentException: this and base files have different roots`
