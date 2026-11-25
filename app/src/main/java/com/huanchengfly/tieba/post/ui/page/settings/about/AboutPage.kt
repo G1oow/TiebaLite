@@ -417,7 +417,7 @@ fun AboutPage(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                 shape = RoundedCornerShape(12.dp),
             ) {
-                Text("查看日志", color = ExtendedTheme.colors.textSecondary, fontSize = 13.sp)
+                Text(stringResource(id = R.string.button_view_log), color = ExtendedTheme.colors.textSecondary, fontSize = 13.sp)
             }
             Spacer(modifier = Modifier.height(8.dp))
             Spacer(modifier = Modifier.height(16.dp))

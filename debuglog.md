@@ -30,6 +30,15 @@
 | 构建 | `F:\Android\gradle-dist\gradle-9.9.2\bin\gradle.bat --no-daemon`，`JAVA_HOME=F:\Android\jdk`、`GRADLE_USER_HOME=F:\Android\gradle-home` |
 | 提取证据 | `adb shell screencap` + `adb shell uiautomator dump`，PowerShell 逐像素 / 逐行统计 |
 
+**2026-11-26 起（DBG-009 及之后）换了机器环境**，像素数字不能与上表混用：
+
+| 项 | 值 |
+|---|---|
+| 设备 | `emulator-5554`（AVD `Pixel_7a`，API 37） |
+| 屏幕 | 1080 × 2400，density 420；**状态栏 / 挖孔 118px**（上表那台是 63px），所以顶栏整体 = 118 + 147 = **265px** |
+| 构建 | 仓库自带 `.\gradlew.bat --no-daemon`，`JAVA_HOME=F:\Android\jbr`（Android Studio 自带 JBR，JDK 25）、`GRADLE_USER_HOME=F:\Android\gradle-home`、`ANDROID_HOME=F:\androidsdk` |
+| adb | `F:\androidsdk\platform-tools\adb.exe` |
+
 ---
 
 ## 索引
@@ -44,6 +53,7 @@
 | [DBG-006](#dbg-006-帖子详情吸顶页签随栏动画伸缩-内容被推着走-147px) | 2026-11-25 | 帖子详情滑动时内容多位移一截（吸顶页签的顶部留白随栏收起比例伸缩） | 已修复（未提交） |
 | [DBG-007](#dbg-007-关于页内容被顶栏切掉应用图标上半截看不见) | 2026-11-25 | 「关于」页应用图标被顶栏盖掉大半，页面像被裁掉一截 | 已修复（未提交） |
 | [DBG-008](#dbg-008-帖子详情-2dp-分隔线滚动时抖动闪烁) | 2026-11-25 | 帖子页主楼下方那条 2dp 分隔线在滚动时自己抖 / 闪 1–2px | 已修复（未提交） |
+| [DBG-009](#dbg-009-日志页内容被悬浮顶栏盖住) | 2026-11-26 | 「关于 → 查看日志」有日志时最早几条被顶栏盖住 | 已修复（`64741ec6`） |
 
 ---
 
@@ -448,6 +458,56 @@
 ### 遗留
 
 其它位置的 `VerticalDivider(thickness = 2.dp)`（推荐流卡片分隔线等）仍是原实现，同样可能抖，本次未改。
+
+---
+
+## DBG-009 日志页内容被悬浮顶栏盖住
+
+**状态**：已修复（`64741ec6`）
+
+### 现象
+
+「关于 → 查看日志」有日志时，最早的几条压在顶栏底下看不到；日志少的时候整页像是空的。
+
+### 复现
+
+登录 → 任意帖子点「评论一番」→ 输入几个字符（触发存草稿，写入 `AppLog`，不发送）→ 返回 →「我 → 关于 → 查看日志」。日志只在内存里，重装 / 杀进程后要重新产生。
+
+### 定位
+
+1. `uiautomator dump` 量节点：顶栏标题行 `y=154..229`，顶栏整体占 `0..265`（状态栏 118 + 标题行 56dp = 147）。
+2. 改动前首条日志时间戳 `[32,5][192,35]`、第二条 `[32,75][192,105]`，第三条整条不在语义树里（被栏遮住），第四条只露出 `y=265..275` 的 10px —— 列表是从 `y=0` 排起的。
+3. `LogPage` 的 `MyScaffold { }` 内容没用传入的 `PaddingValues`，列表是原生 `LazyColumn`；`MyScaffold` 的正文铺满整屏、栏是 overlay（AGENTS.md §5.3），不避让就一定被盖。与 DBG-007 同一类。
+
+### 根因
+
+页面绕过了 `MyLazyColumn`，没有任何一层替它合并 `LocalBarsContentPadding`。
+
+### 修复
+
+| 文件 | 改动 |
+|---|---|
+| `ui/page/settings/about/LogPage.kt` | `LazyColumn` → `MyLazyColumn`（按 `LocalBarsContentPadding` 自动加 `contentPadding`）；4 处硬编码文案改 `stringResource` |
+| `ui/page/settings/about/AboutPage.kt`、`ui/page/main/user/UserPage.kt` | 「查看日志」「查看个人主页」改 `stringResource` |
+| `res/values/strings.xml` | 新增 `title_app_log` / `desc_copy_log` / `desc_clear_log` / `title_no_log` / `button_view_log` / `title_view_profile` |
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| 构建 | `:app:compileDebugKotlin`、`:app:assembleDebug` → `BUILD SUCCESSFUL` |
+| 有日志 | 首条时间戳 `[32,5][192,35]` → `[32,270][192,300]`（栏底 265 + 行内 2dp），之后每 70px 一条，7 条全部在语义树里 |
+| 空日志 | 「暂无日志」`[456,1170][624,1231]`、标题与三个按钮位置与改动前一致，`logcat -b crash` 为空 |
+| 关于页 | 9 个节点 bounds 与改动前逐行一致 |
+
+### 涉及文件
+
+`LogPage.kt`、`AboutPage.kt`、`UserPage.kt`、`strings.xml`。
+
+### 遗留
+
+- 「查看个人主页」菜单项只在登录了多个账号时出现，未上机点开。
+- `AboutPage.kt` 的「无法打开链接」「项目地址」、`UserPage.kt` 的「切换到: …」「回帖内容已自动保存」仍是硬编码，本次未改。
 
 ---
 

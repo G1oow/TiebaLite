@@ -317,7 +317,7 @@ fun UserPage(
                                 showAccountMenu = false
                                 navigator.navigate("user/${account!!.uid.toLong()}")
                             }) {
-                                Text("查看个人主页")
+                                Text(stringResource(id = R.string.title_view_profile))
                             }
                             allAccounts.filter { it.id != account!!.id }.forEach { other ->
                                 DropdownMenuItem(onClick = {

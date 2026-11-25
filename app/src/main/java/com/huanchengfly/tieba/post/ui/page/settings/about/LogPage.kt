@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.Icon
@@ -29,14 +28,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.huanchengfly.tieba.post.R
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.widgets.compose.BackNavigationIcon
+import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import com.huanchengfly.tieba.post.ui.widgets.compose.TitleCentredToolbar
 import com.huanchengfly.tieba.post.utils.AppLog
@@ -55,7 +57,7 @@ fun LogPage(
         topBar = {
             TitleCentredToolbar(
                 title = {
-                    Text("应用日志", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.h6)
+                    Text(stringResource(id = R.string.title_app_log), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.h6)
                 },
                 navigationIcon = {
                     BackNavigationIcon(onBackPressed = { navigator.popBackStack() })
@@ -66,13 +68,13 @@ fun LogPage(
                             "[${it.time}] ${it.tag}: ${it.message}"
                         }))
                     }) {
-                        Icon(Icons.Rounded.Share, contentDescription = "复制日志")
+                        Icon(Icons.Rounded.Share, contentDescription = stringResource(id = R.string.desc_copy_log))
                     }
                     IconButton(onClick = {
                         AppLog.clear()
                         logs = emptyList()
                     }) {
-                        Icon(Icons.Rounded.Delete, contentDescription = "清空")
+                        Icon(Icons.Rounded.Delete, contentDescription = stringResource(id = R.string.desc_clear_log))
                     }
                 }
             )
@@ -84,10 +86,10 @@ fun LogPage(
                 horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
             ) {
-                Text("暂无日志", color = ExtendedTheme.colors.textSecondary, fontSize = 16.sp)
+                Text(stringResource(id = R.string.title_no_log), color = ExtendedTheme.colors.textSecondary, fontSize = 16.sp)
             }
         } else {
-            LazyColumn(
+            MyLazyColumn(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                 state = listState
             ) {
