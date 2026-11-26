@@ -59,6 +59,8 @@
 | [DBG-012](#dbg-012-顶部-inset-只取-statusbars两处按窗口百分比取宽) | 2026-11-26 | 5 处顶部避让只算 statusBars；个人主页 / 错误页按窗口百分比取宽 | 已修复 |
 | [DBG-013](#dbg-013-通知权限请求撞上已销毁的-activity-崩溃) | 2026-11-26 | 切主题 / 快速进出页面偶发 `IllegalStateException: The activity has been destroyed` | 已修复（未提交） |
 | [DBG-014](#dbg-014-个人主页页签下方的短横条整体右移) | 2026-11-26 | 个人主页页签下方 16dp 短横条整体右移约 16dp | 已修复（未提交） |
+| [DBG-018](#dbg-018-吧内页滑动时列表被顶栏动画附加下滑加速度并截断底部) | 2026-11-26 | 吧内页滑动存在下滑加速度，且顶栏收起后列表底部被截断 147px | 已修复（`758dc764`） |
+| [DBG-019](#dbg-019-首页动态消息标题左侧头像未与正文左侧对齐) | 2026-11-26 | 「首页」等主界面顶栏头像左沿停在 4dp，未与页面 16dp 左边界对齐 | 已修复（`5409199b`） |
 
 ---
 
@@ -843,6 +845,266 @@ adb shell cmd uimode night no;  Start-Sleep -Milliseconds 500
 
 ---
 
+
+## DBG-015 草稿箱第一条草稿被悬浮顶栏盖住
+
+**状态**：已修复（未提交）
+
+### 现象
+
+草稿箱有两三条草稿时，第一条永远顶在屏幕最上方：吧名/正文被状态栏与标题行切成两半，右侧删除按钮
+只剩一条 12px 的缝可以点；列表再怎么滑，首条也回不到顶栏下方。
+
+### 根因
+
+`ui/page/settings/about/DraftPage.kt` 直接用裸 `androidx.compose.foundation.lazy.LazyColumn`：
+
+```kotlin
+LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp))
+```
+
+`MyScaffold` 的栏是悬浮 overlay，正文铺满整屏（AGENTS.md §5.3），顶部避让只能靠
+`LocalBarsContentPadding` → 列表的 `contentPadding`（见 `MyLazyColumn`）。裸 `LazyColumn` 不读这个占位，
+`Modifier.padding` 又只是缩视口——8dp 就是全部留白，首条必然落在顶栏底下。与 DBG-009（日志页）同一类问题。
+
+### 修复
+
+换成 `MyLazyColumn`（`ui/widgets/compose/LazyLists.kt`，内部把外层/本层栏高合并进 `contentPadding`）：
+水平 16dp 仍用 `Modifier.padding`（不影响纵向避让），垂直 8dp 改走 `contentPadding`。
+空态（「暂无草稿」居中 `Column`）不装列表，不需要改。
+
+### 验证
+
+设备 `emulator-5554`（1080×2400 @420dpi），草稿 2 条（`csgo` / `抗压背锅`），`uiautomator dump` 取 bounds。
+「修复前」用临时 `MyLazyColumn(..., avoidTopBar = false)` 复现旧行为（此时顶栏占位被跳过，与裸 `LazyColumn` 等价），
+量完立即改回。
+
+| 节点 | 修复前 | 修复后 |
+|---|---|---|
+| 首条正文 `csgo` | `[84,74][162,117]` | `[84,339][162,382]` |
+| 首条删除按钮 | `[902,106][965,118]`（只剩 12px） | `[902,371][965,434]`（完整 63px） |
+| 第二条正文 `抗压背锅` | `[84,330][228,382]` | `[84,595][228,647]` |
+
+顶栏标题「草稿箱」`[461,154][619,229]`，顶栏整块占 0..265px（状态栏 118px + 标题行 147px）。
+首条正文上移量 339 − 74 = **265px**，正好等于顶栏高度——即内容已完整退到顶栏下方。
+`compileDebugKotlin` / `installDebug` → `BUILD SUCCESSFUL`，`logcat -b crash` 全程为空。
+
+### 涉及文件
+
+`ui/page/settings/about/DraftPage.kt`。
+
+### 遗留
+
+- 页面内文案（「草稿箱」「暂无草稿」「已删除」「删除失败」…）仍是硬编码，未资源化（不在本次范围）。
+- 只验证了有草稿的情形；1 条草稿时的底栏避让没有单独量。
+
+## DBG-016 发版后旧版本用户启动时没有更新弹窗
+
+**状态**：已修复（未提交）
+
+### 现象
+
+5.1.3 发布后，仍装 5.1.2 的用户启动应用完全看不到「发现新版本」提示；关于页手动检查却正常。
+
+### 复现
+
+AVD 上把 `application.properties` 临时改成 `versionName=5.1.2` / `versionCode=501004`
+（编号抬高以便覆盖安装），装包后用真机网络（非 mock）分两组启动：
+
+| 组 | 预置条件 | 结果 |
+|---|---|---|
+| A | `update_last_check_time` = 5 分钟前 | **无弹窗**（连检查都没发） |
+| B | 删掉 `update_last_check_time` | **弹窗正常**：发现新版本 / v5.1.3 / 本次忽略 / 立即更新 |
+
+B 组说明网络、版本比对、弹窗渲染都没问题，问题出在「什么情况下才允许检查 / 才继续提示」。
+
+### 根因
+
+三处静默路径，任一命中都表现为「启动不提示」：
+
+1. `UpdateManager.check` 对 `STARTUP` 有 **6 小时节流**（`CHECK_INTERVAL_MS`）：6 小时内成功查过一次，
+   新版本发布后的启动会直接 `return@launch`，连请求都不发。
+2. `UpdateAvailableDialog` 的 `onDismiss` 直接调 `ignoreCurrentVersion()`：弹窗在启动瞬间弹出，
+   用户误触外部或按返回就把**该版本永久静音**（写 `update_ignored_tag`），之后再也不会提示。
+3. 只传了 `cancelable = !force`（管返回键），`cancelableOnTouchOutside` 仍是默认 `true`：
+   **强更弹窗也能点外部关掉**。
+
+### 修复
+
+- 节流 `6h → 2min`（`STARTUP_CHECK_MIN_INTERVAL_MS`）：只用来挡同一会话里的重复触发
+  （Activity 重建、切换主题重组），冷启动每次都真正检查。请求带 ETag，304 不计入 GitHub 匿名限额。
+- 关弹窗不再等于忽略：`onDismiss = null`，只有「本次忽略」按钮写 `update_ignored_tag`。
+- 补 `cancelableOnTouchOutside = !force`，强更点外部也关不掉。
+
+### 验证
+
+设备 `emulator-5554`，debug 包报告 `versionName=5.1.2`，真实网络：
+
+| 步骤 | 结果 |
+|---|---|
+| `update_last_check_time` = 5 分钟前 → 启动 | 弹窗出现（修复前同条件下无弹窗） |
+| 按返回关闭弹窗 | 关闭；`update_ignored_tag` 仍是 `v9.9.9`（未被写成 v5.1.3） |
+| 关闭后再启动 | 弹窗再次出现（不再被永久静默） |
+
+`logcat -b crash` 全程为空；`BUILD SUCCESSFUL`。
+
+### 涉及文件
+
+`update/UpdateManager.kt`、`update/UpdateDialog.kt`。
+
+### 遗留
+
+- 启动检查失败仍保持静默（不打扰用户），因此「网络不通」在用户侧依旧表现为不提示；
+  这次只修掉了「明明能查却不查 / 关掉就再也不提示」。
+- 只在 AVD + 宿主机网络下验证，未覆盖国内网络访问 `api.github.com` 失败的情形。
+
+---
+
+## DBG-017 纯黑主题下悬浮底栏外圈有一条亮描边
+
+**状态**：已修复（未提交）
+
+### 现象
+
+纯黑（AMOLED）主题下，胶囊底栏四周有一圈很淡但可辨的亮线；页面本身是纯黑，这条线把栏「框」了出来。
+
+### 根因
+
+`FloatingBottomBar` 无条件画 1dp 描边（深色主题 8%~12% 白）。纯黑主题页面底色 `#000000`、
+胶囊底色 `#171717`，这条描边落在胶囊边缘就成了一圈亮线。灰暗主题（`grey_dark`）里页面与胶囊都是灰面，
+描边是需要的，不能一刀切去掉。
+
+### 修复
+
+- `FloatingBars.kt` 新增 `rememberPureBlackTheme()`：`theme == amoled_dark` 或 `background == Color.Black`
+  （后者兜住「动态取色」路径——那条路径下 `theme` 会变成 `dynamic`）。
+- `floatingBarBorderColor(..., pureBlack)` 纯黑时返回 `Color.Transparent`；
+  `FloatingBottomBar` 见到透明色就不再叠 `Modifier.border`，少画一层。
+
+### 验证
+
+设备 `emulator-5554`（1080×2400 @420dpi），取底栏左边缘 `(42,2226)` 与胶囊中部 `(540,2226)`：
+
+| 主题 | 边缘 `(42,2226)` | 胶囊 `(540,2226)` | 结论 |
+|---|---|---|---|
+| 纯黑 `amoled_dark`（修复后） | `#171717` | `#171717` | 边缘与胶囊同色，无描边 |
+| 纯黑（修复前） | `#292929` | `#171717` | 边缘偏亮 = 那条线 |
+| 深邃灰 `grey_dark`（未受影响） | `#404040` | `#303030` | 边缘仍亮一档，描边保留 |
+
+`BUILD SUCCESSFUL`，`logcat -b crash` 为空。
+
+### 涉及文件
+
+`ui/widgets/compose/FloatingBars.kt`。
+
+### 遗留
+
+- 只处理了胶囊外描边；样式 A 的**选中滑块**仍有 1dp 主色描边（当作「当前在哪」的强调），
+  若纯黑也要求去掉，需要再确认。
+- 顶栏不在本次范围。
+
+---
+
+## DBG-018 吧内页滑动时列表被顶栏动画附加下滑加速度并截断底部
+
+**状态**：已修复（`758dc764`）
+
+### 现象
+
+在贴吧吧内页（如 `csgo吧`）上下滚动帖子列表时，顶栏收起/展开瞬间整块列表会额外猛窜一截（体感有明显下滑加速度），且顶栏收起后列表最底端会被裁掉一段空白。
+
+### 复现
+
+`emulator-5554`（1080×2400 @420dpi）打开 `csgo吧` → 向下滚动使顶栏收起 → 观察列表滑动手感并 dump 语义树最大 `bottom` 坐标（仅 `2253px`，比屏幕高度 `2400px` 少 `147px = 56dp`）。
+
+### 定位
+
+1. 读 `ForumPage.kt`（666–738 行）：虽然 `ForumToolbar` 复用了公共 `Toolbar` / `TopAppBarContainer`，但 `ForumPage` 正文外层自己套了 `Box(Modifier.padding(top = barHeight).graphicsLayer { translationY = -(followable * hiddenFraction).toPx() }.nestedScroll(headerNestedScrollConnection))`，把吧头、`ScrollableTabRow` 与整个 `HorizontalPager` 帖子列表都打包在这个 `Box` 内。
+2. 对比动态页 `ExplorePage.kt`：动态页把页签直接放进 `Toolbar` 次级槽，`HorizontalPager` 铺满整屏、无外层 `padding(top)` 与 `graphicsLayer`，列表靠 `MyLazyColumn(avoidTopBar = true)` 避让顶栏。
+
+### 根因
+
+1. `ForumPage` 将包含整个 `HorizontalPager` 帖子列表的外层 `Box` 绑定到了顶栏的 `hiddenFraction`（220ms 动画），导致顶栏收起/展开时整块列表被强行叠加 `±147px / 220ms` 绘制位移，体感即滑动加速度。
+2. 该外层 `Box` 同时在布局上减去了 `barHeight = 265px`，再向上 `translationY = -147px`，直接把列表可视底边抬高 `147px`，导致屏幕底部截断在 `y = 2253`。
+3. `headerNestedScrollConnection.onPreScroll` 消费滚动并逐帧修改 `Box.height(containerHeight)`，且超界时返回整个 `available.copy(x = 0f)`，进一步叠加顿挫。
+
+### 修复
+
+- `ForumPage.kt`：对齐 `ExplorePage` 悬浮顶栏架构——将「最新 / 精华」`ScrollableTabRow` 移入 `ForumToolbar` 次级槽（配色统一取 `ExtendedTheme.colors.onTopBar`，适配彩色顶栏主题）；删除外层 `followingPadding`、`graphicsLayer { translationY }` 及 `headerNestedScrollConnection`，让 `HorizontalPager` 铺满整屏；`LoadingPlaceholder` 同步把假页签移入顶栏次级槽。
+- `ForumThreadListPage.kt`：恢复 `MyLazyColumn` 默认 `avoidTopBar = true`；将 `ForumHeader` 作为首个列表 `item(key = "ForumHeader")`、精华页 `GoodClassifyTabs` 作为 `item(key = "GoodClassifyTabs")` 随列表 1:1 滚动，不再在列外被顶栏遮挡。
+
+### 验证
+
+`emulator-5554`（1080×2400 @420dpi），`:app:assembleDebug` `BUILD SUCCESSFUL` 后安装实测 `csgo吧`：
+
+| 检查项 | 修复前 | 修复后 |
+|---|---|---|
+| 慢速上划 300px（1200ms 消惯性）参照项位移 | 触发顶栏动画附加 `-147px` | `CSGO吧 官方水楼` `y=767 → 487`（`Δy = -280px`，1:1 扣除 20px touchSlop） |
+| 慢速回拉 300px（1200ms）参照项位移 | 触发顶栏动画附加 `+147px` | `csgo吧` `y=862 → 1145`（`Δy = +283px`，1:1 严格跟手） |
+| 顶栏收起后残留 | `最新`/`精华` 停在 `y=157` | `返回`/`最新`/`精华` 整块滑出屏幕，零残留 |
+| 顶栏收起后列表最大 `bottom` | `2253px`（截断 147px） | `2400px`（直达屏底） |
+| 精华页签 `GoodClassifyTabs` 落点 | — | `y=667..712`，完整位于顶栏与吧头下方，无遮挡 |
+| 崩溃数（`logcat -b crash`） | — | `0` |
+
+### 涉及文件
+
+`ui/page/forum/ForumPage.kt`、`ui/page/forum/threadlist/ForumThreadListPage.kt`。
+
+### 遗留
+
+无。
+
+---
+
+## DBG-019 首页/动态/消息标题左侧头像未与正文左侧对齐
+
+**状态**：已修复（`5409199b`）
+
+### 现象
+
+「首页」（以及共用 `accountNavIconIfCompact()` 的「动态」「消息」）顶栏标题左侧的用户头像偏左贴边，未与下方搜索框、标签、吧名等页面 UI 的左侧对齐。
+
+### 复现
+
+`emulator-5554`（1080×2400 @420dpi）打开首页并 dump 节点 / 截图测像素：
+- 搜索框左沿 `x = 42px`（16dp）、吧名「图拉丁」`x = 42px`（16dp）
+- 顶栏头像 `长按切换账号`：`[11,144][106,239]`（像素左沿 `x = 11px` = 4.2dp，偏左 12dp）
+
+### 定位
+
+读 `Toolbar.kt:90-195`（`AccountNavIcon`）：函数体顶层先写了 `if (spacer) Spacer(modifier = Modifier.width(12.dp))`，再渲染 `Image` / `LongClickMenu`。
+
+### 根因
+
+迁移到 M3 `TopAppBar`（`fb07d191`）后，`navigationIcon` 槽容器由 M2 的横向 `Row` 变为 M3 的 **`Box`**（自带 `start = 4.dp`）。放在 `Box` 内的同级 `Spacer(12.dp)` 与头像重叠在 `(0, 0)`，完全没有把头像推向右，头像停在 `4.dp = 11px`；同时标题文字与头像仅相距 M3 默认的 `4.dp`（11px）。
+
+### 修复
+
+`Toolbar.kt` 的 `AccountNavIcon` 去掉独立 `Spacer(12.dp)`，改为用外层 `Box(modifier = if (spacer) Modifier.padding(start = 12.dp, end = 8.dp) else Modifier)` 包裹已登录/未登录两分支：
+- `spacer = true`（Compact 顶栏：首页 / 动态 / 消息）：`4dp + 12dp = 16dp`，头像左沿对齐正文 `16dp` 基准线，右侧留 `8dp`（叠加 M3 标题 `4dp` 共 `12dp`）避免头像紧贴标题。
+- `spacer = false`（大屏 `NavigationRail` / `NavigationDrawer`）：`Modifier` 保持无边距，不受影响。
+
+### 验证
+
+`emulator-5554`（1080×2400 @420dpi）实测：
+
+| 页面 | 修复前头像 bounds | 修复后头像 bounds（像素左沿） | 标题左沿 | 页面 UI 左沿 |
+|---|---|---|---|---|
+| 首页 | `[11,144][106,239]` | `[43,144][138,239]`（`x = 43px`） | `170px` | 搜索框 `42px` / 吧名 `42px` |
+| 动态 | `[11,144][106,239]` | `[43,144][138,239]` | `170px` | 帖子正文 `42px` |
+| 消息 | `[11,144][106,239]` | `[43,144][138,239]` | `170px` | — |
+
+`BUILD SUCCESSFUL`，`logcat -b crash` 为空。
+
+### 涉及文件
+
+`ui/widgets/compose/Toolbar.kt`。
+
+### 遗留
+
+无。
+
+---
 
 ## 附录 A：调试环境与手法
 

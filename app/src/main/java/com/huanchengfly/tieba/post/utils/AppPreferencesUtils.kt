@@ -165,6 +165,14 @@ open class AppPreferencesUtils private constructor(ctx: Context) {
         key = "hide_bars_on_scroll"
     )
 
+    /**
+     * 悬浮底栏视觉样式："shadow" = 双层投影 + 发丝描边；"tonal" = 平面分层 + 描边。
+     * 键名与 [com.huanchengfly.tieba.post.ui.widgets.compose.FloatingBarStylePrefKey] 一致。
+     */
+    var floatingBarStyle by DataStoreDelegates.string(
+        defaultValue = "shadow",
+        key = "floating_bar_style"
+    )
     var listItemsBackgroundIntermixed by DataStoreDelegates.boolean(defaultValue = true)
 
     var listSingle by DataStoreDelegates.boolean(defaultValue = false)

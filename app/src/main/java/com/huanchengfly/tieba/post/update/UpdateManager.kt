@@ -27,7 +27,7 @@ import javax.inject.Singleton
  * 更新检查来源。
  */
 enum class UpdateSource {
-    /** 启动时自动检查（节流，失败静默，弹窗提示）。 */
+    /** 启动时自动检查（失败静默，命中新版本则弹窗）。 */
     STARTUP,
 
     /** 关于页手动检查（不节流，失败可见）。 */
@@ -127,15 +127,18 @@ class UpdateManager @Inject constructor(
         if (!checking.compareAndSet(false, true)) return
         scope.launch {
             try {
+                // 启动检查只挡「同一会话里的重复请求」（Activity 重建等），不再按 6 小时节流：
+                // 6 小时窗口会让刚发版的用户在窗口内启动时完全看不到提示（DBG-016）。
+                // 请求带 ETag，命中 304 不计入 GitHub 匿名限额，所以每次冷启动检查是安全的。
                 if (source == UpdateSource.STARTUP &&
-                    System.currentTimeMillis() - lastCheckTime() < CHECK_INTERVAL_MS
+                    System.currentTimeMillis() - lastCheckTime() < STARTUP_CHECK_MIN_INTERVAL_MS
                 ) {
                     return@launch
                 }
                 _state.value = UpdateUiState.Checking(source)
                 val release = fetchLatest()
                 if (release == null) {
-                    // 网络瞬断/接口失败：不写 lastCheckTime，避免 6h 节流把下次启动检查也静默屏蔽
+                    // 网络瞬断/接口失败：不写 lastCheckTime，避免下次启动也被静默跳过
                     _state.value = when (source) {
                         // 启动检查失败静默，不打扰
                         UpdateSource.STARTUP -> UpdateUiState.Idle
@@ -283,8 +286,13 @@ class UpdateManager @Inject constructor(
         /** 更新 APK 下载目录（cache 子目录，对应 FileProvider 的 update_apk paths）。 */
         const val UPDATE_DIR = "update"
 
-        /** 启动检查节流间隔：6 小时。 */
-        const val CHECK_INTERVAL_MS = 6L * 60 * 60 * 1000
+        /**
+         * 启动检查的最小间隔：2 分钟。
+         *
+         * 只用于挡掉同一会话里的重复触发（Activity 重建、主题切换导致的重组）；
+         * 正常冷启动每次都会真正检查一次，不再让新版本在 6 小时窗口里被静默跳过。
+         */
+        const val STARTUP_CHECK_MIN_INTERVAL_MS = 2L * 60 * 1000
 
         private val KEY_LAST_CHECK = longPreferencesKey("update_last_check_time")
         private val KEY_IGNORED_TAG = stringPreferencesKey("update_ignored_tag")

@@ -496,6 +496,10 @@
     <string name="summary_lift_up_bottom_bar">略微抬起贴子页面底栏以方便点按</string>
     <string name="title_hide_bars_on_scroll">顶栏 / 底栏跟随滑动隐藏</string>
     <string name="summary_hide_bars_on_scroll">向下浏览时自动收起顶栏与底栏，向上滚动立即恢复；不改变滚动手感</string>
+    <string name="title_floating_bar_style">悬浮底栏样式</string>
+    <string name="summary_floating_bar_style">选择胶囊底栏「层次感」的来源，切换后立即生效</string>
+    <string name="entry_floating_bar_style_shadow">阴影 · 双层投影 + 描边</string>
+    <string name="entry_floating_bar_style_tonal">色调 · 平面分层 + 描边</string>
     <string name="button_open">打开</string>
     <string name="btn_hide">隐藏</string>
     <string name="desc_search_sug">搜索联想：%s</string>
