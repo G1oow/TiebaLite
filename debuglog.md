@@ -59,6 +59,8 @@
 | [DBG-012](#dbg-012-顶部-inset-只取-statusbars两处按窗口百分比取宽) | 2026-11-26 | 5 处顶部避让只算 statusBars；个人主页 / 错误页按窗口百分比取宽 | 已修复 |
 | [DBG-013](#dbg-013-通知权限请求撞上已销毁的-activity-崩溃) | 2026-11-26 | 切主题 / 快速进出页面偶发 `IllegalStateException: The activity has been destroyed` | 已修复（未提交） |
 | [DBG-014](#dbg-014-个人主页页签下方的短横条整体右移) | 2026-11-26 | 个人主页页签下方 16dp 短横条整体右移约 16dp | 已修复（未提交） |
+| [DBG-018](#dbg-018-吧内页滑动时列表被顶栏动画附加下滑加速度并截断底部) | 2026-11-26 | 吧内页滑动存在下滑加速度，且顶栏收起后列表底部被截断 147px | 已修复（`758dc764`） |
+| [DBG-019](#dbg-019-首页动态消息标题左侧头像未与正文左侧对齐) | 2026-11-26 | 「首页」等主界面顶栏头像左沿停在 4dp，未与页面 16dp 左边界对齐 | 已修复（`5409199b`） |
 
 ---
 
@@ -1000,6 +1002,107 @@ B 组说明网络、版本比对、弹窗渲染都没问题，问题出在「什
 - 只处理了胶囊外描边；样式 A 的**选中滑块**仍有 1dp 主色描边（当作「当前在哪」的强调），
   若纯黑也要求去掉，需要再确认。
 - 顶栏不在本次范围。
+
+---
+
+## DBG-018 吧内页滑动时列表被顶栏动画附加下滑加速度并截断底部
+
+**状态**：已修复（`758dc764`）
+
+### 现象
+
+在贴吧吧内页（如 `csgo吧`）上下滚动帖子列表时，顶栏收起/展开瞬间整块列表会额外猛窜一截（体感有明显下滑加速度），且顶栏收起后列表最底端会被裁掉一段空白。
+
+### 复现
+
+`emulator-5554`（1080×2400 @420dpi）打开 `csgo吧` → 向下滚动使顶栏收起 → 观察列表滑动手感并 dump 语义树最大 `bottom` 坐标（仅 `2253px`，比屏幕高度 `2400px` 少 `147px = 56dp`）。
+
+### 定位
+
+1. 读 `ForumPage.kt`（666–738 行）：虽然 `ForumToolbar` 复用了公共 `Toolbar` / `TopAppBarContainer`，但 `ForumPage` 正文外层自己套了 `Box(Modifier.padding(top = barHeight).graphicsLayer { translationY = -(followable * hiddenFraction).toPx() }.nestedScroll(headerNestedScrollConnection))`，把吧头、`ScrollableTabRow` 与整个 `HorizontalPager` 帖子列表都打包在这个 `Box` 内。
+2. 对比动态页 `ExplorePage.kt`：动态页把页签直接放进 `Toolbar` 次级槽，`HorizontalPager` 铺满整屏、无外层 `padding(top)` 与 `graphicsLayer`，列表靠 `MyLazyColumn(avoidTopBar = true)` 避让顶栏。
+
+### 根因
+
+1. `ForumPage` 将包含整个 `HorizontalPager` 帖子列表的外层 `Box` 绑定到了顶栏的 `hiddenFraction`（220ms 动画），导致顶栏收起/展开时整块列表被强行叠加 `±147px / 220ms` 绘制位移，体感即滑动加速度。
+2. 该外层 `Box` 同时在布局上减去了 `barHeight = 265px`，再向上 `translationY = -147px`，直接把列表可视底边抬高 `147px`，导致屏幕底部截断在 `y = 2253`。
+3. `headerNestedScrollConnection.onPreScroll` 消费滚动并逐帧修改 `Box.height(containerHeight)`，且超界时返回整个 `available.copy(x = 0f)`，进一步叠加顿挫。
+
+### 修复
+
+- `ForumPage.kt`：对齐 `ExplorePage` 悬浮顶栏架构——将「最新 / 精华」`ScrollableTabRow` 移入 `ForumToolbar` 次级槽（配色统一取 `ExtendedTheme.colors.onTopBar`，适配彩色顶栏主题）；删除外层 `followingPadding`、`graphicsLayer { translationY }` 及 `headerNestedScrollConnection`，让 `HorizontalPager` 铺满整屏；`LoadingPlaceholder` 同步把假页签移入顶栏次级槽。
+- `ForumThreadListPage.kt`：恢复 `MyLazyColumn` 默认 `avoidTopBar = true`；将 `ForumHeader` 作为首个列表 `item(key = "ForumHeader")`、精华页 `GoodClassifyTabs` 作为 `item(key = "GoodClassifyTabs")` 随列表 1:1 滚动，不再在列外被顶栏遮挡。
+
+### 验证
+
+`emulator-5554`（1080×2400 @420dpi），`:app:assembleDebug` `BUILD SUCCESSFUL` 后安装实测 `csgo吧`：
+
+| 检查项 | 修复前 | 修复后 |
+|---|---|---|
+| 慢速上划 300px（1200ms 消惯性）参照项位移 | 触发顶栏动画附加 `-147px` | `CSGO吧 官方水楼` `y=767 → 487`（`Δy = -280px`，1:1 扣除 20px touchSlop） |
+| 慢速回拉 300px（1200ms）参照项位移 | 触发顶栏动画附加 `+147px` | `csgo吧` `y=862 → 1145`（`Δy = +283px`，1:1 严格跟手） |
+| 顶栏收起后残留 | `最新`/`精华` 停在 `y=157` | `返回`/`最新`/`精华` 整块滑出屏幕，零残留 |
+| 顶栏收起后列表最大 `bottom` | `2253px`（截断 147px） | `2400px`（直达屏底） |
+| 精华页签 `GoodClassifyTabs` 落点 | — | `y=667..712`，完整位于顶栏与吧头下方，无遮挡 |
+| 崩溃数（`logcat -b crash`） | — | `0` |
+
+### 涉及文件
+
+`ui/page/forum/ForumPage.kt`、`ui/page/forum/threadlist/ForumThreadListPage.kt`。
+
+### 遗留
+
+无。
+
+---
+
+## DBG-019 首页/动态/消息标题左侧头像未与正文左侧对齐
+
+**状态**：已修复（`5409199b`）
+
+### 现象
+
+「首页」（以及共用 `accountNavIconIfCompact()` 的「动态」「消息」）顶栏标题左侧的用户头像偏左贴边，未与下方搜索框、标签、吧名等页面 UI 的左侧对齐。
+
+### 复现
+
+`emulator-5554`（1080×2400 @420dpi）打开首页并 dump 节点 / 截图测像素：
+- 搜索框左沿 `x = 42px`（16dp）、吧名「图拉丁」`x = 42px`（16dp）
+- 顶栏头像 `长按切换账号`：`[11,144][106,239]`（像素左沿 `x = 11px` = 4.2dp，偏左 12dp）
+
+### 定位
+
+读 `Toolbar.kt:90-195`（`AccountNavIcon`）：函数体顶层先写了 `if (spacer) Spacer(modifier = Modifier.width(12.dp))`，再渲染 `Image` / `LongClickMenu`。
+
+### 根因
+
+迁移到 M3 `TopAppBar`（`fb07d191`）后，`navigationIcon` 槽容器由 M2 的横向 `Row` 变为 M3 的 **`Box`**（自带 `start = 4.dp`）。放在 `Box` 内的同级 `Spacer(12.dp)` 与头像重叠在 `(0, 0)`，完全没有把头像推向右，头像停在 `4.dp = 11px`；同时标题文字与头像仅相距 M3 默认的 `4.dp`（11px）。
+
+### 修复
+
+`Toolbar.kt` 的 `AccountNavIcon` 去掉独立 `Spacer(12.dp)`，改为用外层 `Box(modifier = if (spacer) Modifier.padding(start = 12.dp, end = 8.dp) else Modifier)` 包裹已登录/未登录两分支：
+- `spacer = true`（Compact 顶栏：首页 / 动态 / 消息）：`4dp + 12dp = 16dp`，头像左沿对齐正文 `16dp` 基准线，右侧留 `8dp`（叠加 M3 标题 `4dp` 共 `12dp`）避免头像紧贴标题。
+- `spacer = false`（大屏 `NavigationRail` / `NavigationDrawer`）：`Modifier` 保持无边距，不受影响。
+
+### 验证
+
+`emulator-5554`（1080×2400 @420dpi）实测：
+
+| 页面 | 修复前头像 bounds | 修复后头像 bounds（像素左沿） | 标题左沿 | 页面 UI 左沿 |
+|---|---|---|---|---|
+| 首页 | `[11,144][106,239]` | `[43,144][138,239]`（`x = 43px`） | `170px` | 搜索框 `42px` / 吧名 `42px` |
+| 动态 | `[11,144][106,239]` | `[43,144][138,239]` | `170px` | 帖子正文 `42px` |
+| 消息 | `[11,144][106,239]` | `[43,144][138,239]` | `170px` | — |
+
+`BUILD SUCCESSFUL`，`logcat -b crash` 为空。
+
+### 涉及文件
+
+`ui/widgets/compose/Toolbar.kt`。
+
+### 遗留
+
+无。
 
 ---
 
