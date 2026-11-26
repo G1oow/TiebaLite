@@ -26,6 +26,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.cancellable
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -50,21 +51,21 @@ inline fun <reified T : UiState, A> Flow<T>.collectPartialAsState(
     prop1: KProperty1<T, A>,
     initial: A,
 ): State<A> {
+    // StateFlow 在返回栈恢复组合时已持有最新数据：首帧同步取当前值，
+    // 避免先吐出 initial(null / emptyList) 导致 StateScreen 重建子树或 LazyListState 被 clamp 回顶部。
+    val startValue = if (this is StateFlow<T>) prop1.get(this.value) else initial
+    val useSyncFlow = this is StateFlow<T>
     return produceState(
-        initialValue = initial,
+        initialValue = startValue,
         key1 = this,
         key2 = prop1,
-        key3 = initial
     ) {
-        this@collectPartialAsState
-            .map {
-                prop1.get(it)
-            }
+        val mapped = this@collectPartialAsState
+            .map { prop1.get(it) }
             .distinctUntilChanged()
-            .flowOn(Dispatchers.IO)
-            .collect {
-                value = it
-            }
+        (if (useSyncFlow) mapped else mapped.flowOn(Dispatchers.IO)).collect {
+            value = it
+        }
     }
 }
 
