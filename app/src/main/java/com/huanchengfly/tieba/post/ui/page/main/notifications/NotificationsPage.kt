@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.rememberPagerState
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
-import androidx.compose.material.Tab
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Search
@@ -27,6 +26,7 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.BackNavigationIcon
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoadHorizontalPager
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import com.huanchengfly.tieba.post.ui.widgets.compose.PagerTabIndicator
+import com.huanchengfly.tieba.post.ui.widgets.compose.Tab
 import com.huanchengfly.tieba.post.ui.widgets.compose.TabRow
 import com.huanchengfly.tieba.post.ui.widgets.compose.TitleCentredToolbar
 import com.huanchengfly.tieba.post.ui.widgets.compose.Toolbar
@@ -69,12 +69,7 @@ fun NotificationsPage(
                 ) {
                     TabRow(
                         selectedTabIndex = pagerState.currentPage,
-                        indicator = { tabPositions ->
-                            PagerTabIndicator(
-                                pagerState = pagerState,
-                                tabPositions = tabPositions
-                            )
-                        },
+                        indicator = { PagerTabIndicator(pagerState) },
                         divider = {},
                         backgroundColor = Color.Transparent,
                         contentColor = ExtendedTheme.colors.onTopBar,
@@ -147,12 +142,7 @@ fun NotificationsPage(
             ) {
                 TabRow(
                     selectedTabIndex = pagerState.currentPage,
-                    indicator = { tabPositions ->
-                        PagerTabIndicator(
-                            pagerState = pagerState,
-                            tabPositions = tabPositions
-                        )
-                    },
+                    indicator = { PagerTabIndicator(pagerState) },
                     divider = {},
                     backgroundColor = Color.Transparent,
                     contentColor = ExtendedTheme.colors.onTopBar,
