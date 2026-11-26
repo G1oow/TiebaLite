@@ -502,10 +502,17 @@
     <string name="entry_floating_bar_style_tonal">色调 · 平面分层 + 描边</string>
     <string name="title_feed_card_style">帖子卡片样式</string>
     <string name="summary_feed_card_style">选择信息流与吧内帖子列表的卡片视觉样式，切换后立即生效</string>
-    <string name="entry_feed_card_style_tonal_capsule">色调胶囊卡（默认）</string>
-    <string name="entry_feed_card_style_elevated">柔和浮卡</string>
+    <string name="entry_feed_card_style_tonal_capsule">色调胶囊卡</string>
+    <string name="entry_feed_card_style_elevated">柔和浮卡（默认）</string>
     <string name="entry_feed_card_style_minimal">极简通栏流</string>
     <string name="entry_feed_card_style_classic">原版样式</string>
+    <string name="title_thread_comment_style">评论与楼中楼样式</string>
+    <string name="summary_thread_comment_style">选择帖子详情页的评论及楼中楼卡片视觉样式，切换后立即生效</string>
+    <string name="entry_thread_comment_style_soft_card">柔和浮卡</string>
+    <string name="entry_thread_comment_style_clean_stream">通栏轻读 · 引导线楼中楼（默认）</string>
+    <string name="entry_thread_comment_style_compact_quote">全宽浮卡 · 强调引用楼中楼</string>
+    <string name="tip_thread_card_click_reply">点击卡片回复本楼</string>
+    <string name="title_thread_card_sub_count">%d 条讨论</string>
     <string name="button_open">打开</string>
     <string name="btn_hide">隐藏</string>
     <string name="desc_search_sug">搜索联想：%s</string>
@@ -584,4 +591,5 @@
     <string name="entry_network_timeout_recommended">%d 秒（推荐）</string>
     <string name="title_concern_empty">暂无关注动态</string>
     <string name="summary_concern_empty">关注感兴趣的用户后，TA 们的动态会显示在这里</string>
+    <string name="tip_thread_reached_bottom">已经到底了！！</string>
 </resources>

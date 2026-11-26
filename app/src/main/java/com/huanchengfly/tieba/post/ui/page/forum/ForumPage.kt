@@ -100,12 +100,11 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.FeedCardPlaceholder
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
 import com.huanchengfly.tieba.post.ui.widgets.compose.MenuScope
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
-import com.huanchengfly.tieba.post.ui.widgets.compose.PagerTabIndicator
 import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
-import com.huanchengfly.tieba.post.ui.widgets.compose.ScrollableTabRow
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTab
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTabClickMenu
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTabRow
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
-import com.huanchengfly.tieba.post.ui.widgets.compose.Tab
-import com.huanchengfly.tieba.post.ui.widgets.compose.TabClickMenu
 import com.huanchengfly.tieba.post.ui.widgets.compose.Toolbar
 import com.huanchengfly.tieba.post.ui.widgets.compose.picker.ListSinglePicker
 import com.huanchengfly.tieba.post.ui.widgets.compose.rememberDialogState
@@ -548,22 +547,17 @@ fun ForumPage(
                         },
                         forumId = forumInfo?.get { id }
                     ) {
-                        val tabTextStyle = MaterialTheme.typography.button.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            letterSpacing = 0.sp
-                        )
-
-                        ScrollableTabRow(
+                        SegmentedTabRow(
                             selectedTabIndex = currentPage,
-                            indicator = { PagerTabIndicator(pagerState) },
-                            divider = {},
-                            backgroundColor = Color.Transparent,
+                            pagerState = pagerState,
+                            onPrimarySurface = true,
                             contentColor = ExtendedTheme.colors.onTopBar,
-                            edgePadding = 0.dp,
+                            equalWidth = false,
+                            scrollable = true,
+                            minTabWidth = 64.dp,
                             modifier = Modifier
-                                .wrapContentWidth(align = Alignment.Start)
                                 .align(Alignment.Start)
+                                .padding(horizontal = 16.dp, vertical = 6.dp),
                         ) {
                             var currentSortType by remember {
                                 mutableIntStateOf(
@@ -573,7 +567,7 @@ fun ForumPage(
                                     )
                                 )
                             }
-                            TabClickMenu(
+                            SegmentedTabClickMenu(
                                 selected = currentPage == 0,
                                 onClick = {
                                     coroutineScope.launch {
@@ -583,7 +577,7 @@ fun ForumPage(
                                 text = {
                                     Text(
                                         text = stringResource(id = R.string.tab_forum_latest),
-                                        style = tabTextStyle
+                                        maxLines = 1
                                     )
                                 },
                                 menuContent = {
@@ -612,7 +606,7 @@ fun ForumPage(
                                     )
                                 }
                             )
-                            Tab(
+                            SegmentedTab(
                                 selected = currentPage == 1,
                                 onClick = {
                                     coroutineScope.launch {
@@ -620,17 +614,10 @@ fun ForumPage(
                                     }
                                 }
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .height(48.dp)
-                                        .padding(horizontal = 16.dp)
-                                ) {
-                                    Text(
-                                        text = stringResource(id = R.string.tab_forum_good),
-                                        style = tabTextStyle
-                                    )
-                                }
+                                Text(
+                                    text = stringResource(id = R.string.tab_forum_good),
+                                    maxLines = 1
+                                )
                             }
                         }
                     }

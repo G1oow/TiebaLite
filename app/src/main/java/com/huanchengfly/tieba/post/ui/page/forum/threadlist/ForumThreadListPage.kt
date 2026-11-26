@@ -57,7 +57,9 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.LoadMoreLayout
 import com.huanchengfly.tieba.post.ui.widgets.compose.LocalSnackbarHostState
 import com.huanchengfly.tieba.post.ui.widgets.compose.FeedListDivider
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTab
 import kotlinx.collections.immutable.ImmutableList
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTabRow
 import kotlinx.collections.immutable.persistentListOf
 
 private fun getFirstLoadIntent(
@@ -108,23 +110,30 @@ private fun GoodClassifyTabs(
     selectedItem: Int?,
     onSelected: (Int) -> Unit,
 ) {
-    LazyRow(
-        modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    val selectedIndex = goodClassifyHolders.indexOfFirst { it.get { class_id } == selectedItem }
+        .coerceAtLeast(0)
+    SegmentedTabRow(
+        selectedTabIndex = selectedIndex,
+        onPrimarySurface = false,
+        contentColor = ExtendedTheme.colors.text,
+        equalWidth = false,
+        scrollable = true,
+        minTabWidth = 56.dp,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        items(
-            items = goodClassifyHolders,
-            key = { it.get { "${class_id}_$class_name" } }
-        ) { holder ->
-            Chip(
-                text = holder.get { class_name },
-                invertColor = selectedItem == holder.get { class_id },
-                onClick = { onSelected(holder.get { class_id }) }
-            )
+        goodClassifyHolders.forEach { holder ->
+            val classId = holder.get { class_id }
+            SegmentedTab(
+                selected = selectedItem == classId,
+                onClick = { onSelected(classId) },
+                selectedContentColor = ExtendedTheme.colors.primary,
+                unselectedContentColor = ExtendedTheme.colors.textSecondary,
+            ) {
+                Text(text = holder.get { class_name }, maxLines = 1)
+            }
         }
     }
 }
-
 @Composable
 private fun TopThreadItem(
     title: String,

@@ -1,9 +1,14 @@
 package com.huanchengfly.tieba.post.ui.widgets.compose
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -13,6 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ContentAlpha
 import androidx.compose.material.LocalContentAlpha as M2LocalContentAlpha
@@ -37,18 +44,32 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
+import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
-
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.max
+import kotlin.math.roundToInt
 /**
  * 等宽页签栏：M3 [SecondaryTabRow] 的薄封装。
  *
@@ -332,9 +353,350 @@ fun TabClickMenu(
                 contentDescription = null,
                 modifier = Modifier
                     .size(16.dp)
-                    .rotate(rotate)
-                    .alpha(alpha)
+                    .graphicsLayer {
+                        rotationZ = rotate
+                        this.alpha = alpha
+                    }
             )
+        }
+    }
+}
+
+private val SegmentedTrackShape = RoundedCornerShape(percent = 50)
+private val SegmentedTrackPadding = 3.dp
+private val SegmentedTabHeight = 32.dp
+private val SegmentedSliderEasing = CubicBezierEasing(0.25f, 1f, 0.5f, 1f)
+private const val SegmentedSliderDurationMs = 280
+
+/**
+ * 胶囊分段页签栏（Motion Primitives `SegmentedTabs` 风格）：
+ *
+ * - 外层是低对比柔和胶囊轨道，内层唯一一块选中滑块胶囊画在 `drawBehind` 绘制层，
+ *   只读取 `pagerState` 实时偏移（拖拽逐帧跟踪、点击平滑滑动）或 `selectedTabIndex` 的减速补间，
+ *   动画期间不触发布局重组（AGENTS.md §3.4 / §6）。
+ * - 支持等宽模式（`equalWidth = true`，用于 2–3 项短标题页签）和自适应宽度 + 横向滚动模式
+ *   （`equalWidth = false, scrollable = true`，用于吧页 / 个人主页等不定长页签）。
+ * - 颜色默认按所处背景明暗（浅色 / 深色 / 纯黑 AMOLED / 主色彩色顶栏）自动分层，纯黑下不加亮描边。
+ */
+@Composable
+fun SegmentedTabRow(
+    selectedTabIndex: Int,
+    modifier: Modifier = Modifier,
+    pagerState: PagerState? = null,
+    onPrimarySurface: Boolean = false,
+    trackColor: Color = defaultSegmentedTrackColor(onPrimarySurface),
+    indicatorColor: Color = defaultSegmentedIndicatorColor(onPrimarySurface),
+    contentColor: Color = ExtendedTheme.colors.onTopBar,
+    equalWidth: Boolean = true,
+    scrollable: Boolean = false,
+    minTabWidth: Dp = 64.dp,
+    tabs: @Composable () -> Unit,
+) {
+    val density = LocalDensity.current
+    val minTabWidthPx = with(density) { minTabWidth.roundToPx() }
+
+    // 无 PagerState 时退回到索引减速补间；有 PagerState 时直接在 drawBehind 读取
+    // currentPage + currentPageOffsetFraction，拖拽跟手、点击动画同步，零重组开销。
+    val fallbackAnimatedIndex = if (pagerState == null) {
+        animateFloatAsState(
+            targetValue = selectedTabIndex.toFloat(),
+            animationSpec = tween(
+                durationMillis = SegmentedSliderDurationMs,
+                easing = SegmentedSliderEasing,
+            ),
+            label = "SegmentedTabIndex",
+        )
+    } else {
+        null
+    }
+
+    // 仅记录各页签布局几何供绘制层插值，不走 MutableState 以免测量后二次重组。
+    val tabBounds = remember { SegmentedTabBounds() }
+    val scrollState = if (scrollable) rememberScrollState() else null
+
+    // 可横向滚动模式下，选中项超出可视区时自动平滑滚入。
+    if (scrollState != null) {
+        LaunchedEffect(selectedTabIndex, tabBounds.count) {
+            if (selectedTabIndex in 0 until tabBounds.count) {
+                val left = tabBounds.lefts[selectedTabIndex]
+                val right = left + tabBounds.widths[selectedTabIndex]
+                val viewportWidth = scrollState.viewportSize
+                if (viewportWidth > 0) {
+                    val target = ((left + right) / 2 - viewportWidth / 2)
+                        .coerceIn(0, scrollState.maxValue)
+                    scrollState.animateScrollTo(target)
+                }
+            }
+        }
+    }
+
+    val scrollModifier = if (scrollState != null) {
+        Modifier.horizontalScroll(scrollState)
+    } else {
+        Modifier
+    }
+
+    Box(
+        propagateMinConstraints = !scrollable,
+        modifier = modifier
+            .clip(SegmentedTrackShape)
+            .background(trackColor)
+            .then(scrollModifier)
+            .padding(SegmentedTrackPadding)
+    ) {
+        Layout(
+            content = {
+                ProvideM2ContentColor(color = contentColor) {
+                    CompositionLocalProvider(LocalContentColor provides contentColor) {
+                        tabs()
+                    }
+                }
+            },
+            modifier = Modifier.drawBehind {
+                val count = tabBounds.count
+                if (count <= 0) return@drawBehind
+
+                val rawPosition = if (pagerState != null) {
+                    (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                        .coerceIn(0f, (count - 1).toFloat())
+                } else {
+                    (fallbackAnimatedIndex?.value ?: selectedTabIndex.toFloat())
+                        .coerceIn(0f, (count - 1).toFloat())
+                }
+
+                val lower = floor(rawPosition).toInt().coerceIn(0, count - 1)
+                val upper = ceil(rawPosition).toInt().coerceIn(0, count - 1)
+                val fraction = rawPosition - lower
+
+                val left = lerp(tabBounds.lefts[lower].toFloat(), tabBounds.lefts[upper].toFloat(), fraction)
+                val width = lerp(tabBounds.widths[lower].toFloat(), tabBounds.widths[upper].toFloat(), fraction)
+                if (width <= 0f || size.height <= 0f) return@drawBehind
+
+                val radius = size.height / 2f
+                drawRoundRect(
+                    color = indicatorColor,
+                    topLeft = Offset(left, 0f),
+                    size = Size(width, size.height),
+                    cornerRadius = CornerRadius(radius, radius),
+                )
+            }
+        ) { measurables, constraints ->
+            val count = measurables.size
+            if (count == 0) {
+                tabBounds.update(0, IntArray(0), IntArray(0))
+                return@Layout layout(0, 0) {}
+            }
+
+            val tabHeightPx = with(density) { SegmentedTabHeight.roundToPx() }
+                .coerceIn(constraints.minHeight, constraints.maxHeight)
+
+            val placeables = if (equalWidth) {
+                val cellWidth = if (constraints.hasBoundedWidth && constraints.maxWidth != Constraints.Infinity) {
+                    val bounded = (constraints.maxWidth / count).coerceAtLeast(1)
+                    // 若父级指定了固定宽度（如 fillMaxWidth），直接按容器等分；否则取最大自然宽与最小宽。
+                    if (constraints.minWidth == constraints.maxWidth) {
+                        bounded
+                    } else {
+                        val maxIntrinsic = measurables.maxOf { it.maxIntrinsicWidth(tabHeightPx) }
+                        max(maxIntrinsic, minTabWidthPx).coerceAtMost(bounded)
+                    }
+                } else {
+                    val maxIntrinsic = measurables.maxOf { it.maxIntrinsicWidth(tabHeightPx) }
+                    max(maxIntrinsic, minTabWidthPx)
+                }
+                val childConstraints = Constraints.fixed(width = cellWidth, height = tabHeightPx)
+                measurables.map { it.measure(childConstraints) }
+            } else {
+                val childConstraints = Constraints(
+                    minWidth = minTabWidthPx,
+                    maxWidth = Constraints.Infinity,
+                    minHeight = tabHeightPx,
+                    maxHeight = tabHeightPx,
+                )
+                measurables.map { it.measure(childConstraints) }
+            }
+
+            val lefts = IntArray(count)
+            val widths = IntArray(count)
+            var x = 0
+            placeables.forEachIndexed { index, placeable ->
+                lefts[index] = x
+                widths[index] = placeable.width
+                x += placeable.width
+            }
+            tabBounds.update(count, lefts, widths)
+
+            val totalWidth = x.coerceIn(constraints.minWidth, constraints.maxWidth)
+            layout(totalWidth, tabHeightPx) {
+                placeables.forEachIndexed { index, placeable ->
+                    placeable.placeRelative(x = lefts[index], y = 0)
+                }
+            }
+        }
+    }
+}
+
+private class SegmentedTabBounds {
+    var count: Int = 0
+        private set
+    var lefts: IntArray = IntArray(0)
+        private set
+    var widths: IntArray = IntArray(0)
+        private set
+
+    fun update(count: Int, lefts: IntArray, widths: IntArray) {
+        this.count = count
+        this.lefts = lefts
+        this.widths = widths
+    }
+}
+
+/** 轨道默认底色：浅色用柔灰、深色/纯黑用低对比微亮层、彩色顶栏用半透白/黑叠层。 */
+@Composable
+fun defaultSegmentedTrackColor(onPrimarySurface: Boolean = false): Color {
+    val colors = ExtendedTheme.colors
+    val pureBlack = rememberPureBlackTheme()
+    return when {
+        pureBlack -> Color(0xFF141414)
+        colors.isNightMode -> Color.White.copy(alpha = 0.08f)
+        onPrimarySurface && colors.topBar.luminance() < 0.35f -> Color.White.copy(alpha = 0.16f)
+        else -> Color.Black.copy(alpha = 0.055f)
+    }
+}
+
+/** 选中滑块胶囊默认底色：相对轨道略提一档，柔和分层、无强对比或亮描边。 */
+@Composable
+fun defaultSegmentedIndicatorColor(onPrimarySurface: Boolean = false): Color {
+    val colors = ExtendedTheme.colors
+    val pureBlack = rememberPureBlackTheme()
+    return when {
+        pureBlack -> Color(0xFF282828)
+        colors.isNightMode -> Color.White.copy(alpha = 0.16f)
+        onPrimarySurface && colors.topBar.luminance() < 0.35f -> Color.White.copy(alpha = 0.28f)
+        else -> Color.White
+    }
+}
+
+/**
+ * 胶囊分段页签单项：文字颜色随选中态平滑过渡，点击波纹裁剪到胶囊圆角内。
+ */
+@Composable
+fun SegmentedTab(
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
+    selectedContentColor: Color = LocalContentColor.current,
+    unselectedContentColor: Color = selectedContentColor.copy(alpha = 0.65f),
+    horizontalPadding: Dp = 14.dp,
+    content: @Composable () -> Unit,
+) {
+    val contentColor by animateColorAsState(
+        targetValue = if (selected) selectedContentColor else unselectedContentColor,
+        animationSpec = tween(durationMillis = 200, easing = SegmentedSliderEasing),
+        label = "SegmentedTabColor",
+    )
+    val textStyle = MaterialTheme.typography.labelLarge.copy(
+        fontSize = 13.sp,
+        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+        letterSpacing = 0.sp,
+        textAlign = TextAlign.Center,
+    )
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .clip(SegmentedTrackShape)
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                enabled = enabled,
+                role = Role.Tab,
+                interactionSource = interactionSource,
+                indication = null,
+            )
+            .padding(horizontal = horizontalPadding),
+        contentAlignment = Alignment.Center,
+    ) {
+        CompositionLocalProvider(LocalContentColor provides contentColor) {
+            ProvideM2TabContent(textStyle = textStyle, content = content)
+        }
+    }
+}
+
+/**
+ * 带排序下拉菜单的胶囊分段页签（如吧内「最新▾」、搜索「贴子▾」）：
+ * 未选中时点击切页，已选中时点击弹出下拉菜单并旋转箭头。
+ */
+@Composable
+fun SegmentedTabClickMenu(
+    selected: Boolean,
+    onClick: () -> Unit,
+    text: @Composable () -> Unit,
+    menuContent: @Composable MenuScope.() -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    menuState: MenuState = rememberMenuState(),
+    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
+    selectedContentColor: Color = LocalContentColor.current,
+    unselectedContentColor: Color = selectedContentColor.copy(alpha = 0.65f),
+) {
+    LaunchedEffect(interactionSource) {
+        interactionSource.interactions
+            .filterIsInstance<PressInteraction.Press>()
+            .collect {
+                menuState.offset = it.pressPosition
+            }
+    }
+    val rotate = animateFloatAsState(
+        targetValue = if (menuState.expanded) 180f else 0f,
+        animationSpec = tween(durationMillis = 200, easing = SegmentedSliderEasing),
+        label = "SegmentedArrowRotate",
+    )
+    val arrowAlpha = animateFloatAsState(
+        targetValue = if (selected) 1f else 0f,
+        animationSpec = tween(durationMillis = 200, easing = SegmentedSliderEasing),
+        label = "SegmentedArrowAlpha",
+    )
+    ClickMenu(
+        menuContent = menuContent,
+        menuState = menuState,
+        indication = null,
+        triggerShape = SegmentedTrackShape,
+    ) {
+        SegmentedTab(
+            selected = selected,
+            onClick = {
+                if (!selected) {
+                    onClick()
+                } else {
+                    menuState.toggle()
+                }
+            },
+            modifier = modifier,
+            enabled = enabled,
+            interactionSource = interactionSource,
+            selectedContentColor = selectedContentColor,
+            unselectedContentColor = unselectedContentColor,
+            horizontalPadding = 0.dp,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(start = 14.dp, end = 6.dp),
+            ) {
+                text()
+                Icon(
+                    imageVector = Icons.Rounded.ArrowDropDown,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(16.dp)
+                        .graphicsLayer {
+                            rotationZ = rotate.value
+                            alpha = arrowAlpha.value
+                        }
+                )
+            }
         }
     }
 }

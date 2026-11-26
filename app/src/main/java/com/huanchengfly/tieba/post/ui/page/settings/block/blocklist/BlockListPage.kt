@@ -55,12 +55,11 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.LocalSnackbarHostState
 import com.huanchengfly.tieba.post.ui.widgets.compose.LongClickMenu
 import com.huanchengfly.tieba.post.ui.widgets.compose.FloatingBottomBar
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
-import com.huanchengfly.tieba.post.ui.widgets.compose.Tab
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTab
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTabRow
 import com.huanchengfly.tieba.post.ui.widgets.compose.floatingBarColor
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
-import com.huanchengfly.tieba.post.ui.widgets.compose.PagerTabIndicator
 import com.huanchengfly.tieba.post.ui.widgets.compose.PromptDialog
-import com.huanchengfly.tieba.post.ui.widgets.compose.TabRow
 import com.huanchengfly.tieba.post.ui.widgets.compose.TitleCentredToolbar
 import com.huanchengfly.tieba.post.ui.widgets.compose.rememberDialogState
 import com.huanchengfly.tieba.post.ui.widgets.compose.states.StateScreen
@@ -127,26 +126,29 @@ fun BlockListPage(
                     BackNavigationIcon(onBackPressed = { navigator.popBackStack() })
                 },
                 content = {
-                    TabRow(
+                    SegmentedTabRow(
                         selectedTabIndex = pagerState.currentPage,
-                        indicator = { PagerTabIndicator(pagerState) },
-                        divider = {},
-                        backgroundColor = Color.Transparent,
+                        pagerState = pagerState,
+                        onPrimarySurface = true,
                         contentColor = ExtendedTheme.colors.onTopBar,
+                        equalWidth = true,
+                        minTabWidth = 84.dp,
                         modifier = Modifier
                             .align(Alignment.CenterHorizontally)
-                            .width(84.dp * 2),
+                            .padding(vertical = 6.dp),
                     ) {
-                        Tab(
+                        SegmentedTab(
                             selected = pagerState.currentPage == 0,
                             onClick = { coroutineScope.launch { pagerState.animateScrollToPage(0) } },
-                            text = { Text(text = stringResource(id = R.string.title_black_list)) },
-                        )
-                        Tab(
+                        ) {
+                            Text(text = stringResource(id = R.string.title_black_list), maxLines = 1)
+                        }
+                        SegmentedTab(
                             selected = pagerState.currentPage == 1,
                             onClick = { coroutineScope.launch { pagerState.animateScrollToPage(1) } },
-                            text = { Text(text = stringResource(id = R.string.title_white_list)) },
-                        )
+                        ) {
+                            Text(text = stringResource(id = R.string.title_white_list), maxLines = 1)
+                        }
                     }
                 }
             )

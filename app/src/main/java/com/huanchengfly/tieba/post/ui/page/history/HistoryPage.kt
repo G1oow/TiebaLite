@@ -2,7 +2,7 @@ package com.huanchengfly.tieba.post.ui.page.history
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.Icon
@@ -31,9 +31,8 @@ import com.huanchengfly.tieba.post.ui.page.history.list.HistoryListPage
 import com.huanchengfly.tieba.post.ui.page.history.list.HistoryListUiEvent
 import com.huanchengfly.tieba.post.ui.widgets.compose.BackNavigationIcon
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
-import com.huanchengfly.tieba.post.ui.widgets.compose.PagerTabIndicator
-import com.huanchengfly.tieba.post.ui.widgets.compose.Tab
-import com.huanchengfly.tieba.post.ui.widgets.compose.TabRow
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTab
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTabRow
 import com.huanchengfly.tieba.post.ui.widgets.compose.TitleCentredToolbar
 import com.huanchengfly.tieba.post.utils.HistoryUtil
 import androidx.navigation.NavHostController
@@ -86,23 +85,18 @@ fun HistoryPage(
                     }
                 },
                 content = {
-                    TabRow(
+                    SegmentedTabRow(
                         selectedTabIndex = pagerState.currentPage,
-                        indicator = { PagerTabIndicator(pagerState) },
-                        divider = {},
-                        backgroundColor = Color.Transparent,
-                        contentColor = ExtendedTheme.colors.primary,
+                        pagerState = pagerState,
+                        onPrimarySurface = true,
+                        contentColor = ExtendedTheme.colors.onTopBar,
+                        equalWidth = true,
+                        minTabWidth = 96.dp,
                         modifier = Modifier
-                            .width(100.dp * 2)
                             .align(Alignment.CenterHorizontally)
+                            .padding(vertical = 6.dp),
                     ) {
-                        Tab(
-                            text = {
-                                Text(
-                                    text = stringResource(id = R.string.title_history_thread),
-                                    fontSize = 13.sp
-                                )
-                            },
+                        SegmentedTab(
                             selected = pagerState.currentPage == 0,
                             onClick = {
                                 coroutineScope.launch {
@@ -110,15 +104,14 @@ fun HistoryPage(
                                 }
                             },
                             selectedContentColor = ExtendedTheme.colors.onTopBar,
-                            unselectedContentColor = ExtendedTheme.colors.onTopBarSecondary
-                        )
-                        Tab(
-                            text = {
-                                Text(
-                                    text = stringResource(id = R.string.title_history_forum),
-                                    fontSize = 13.sp
-                                )
-                            },
+                            unselectedContentColor = ExtendedTheme.colors.onTopBarSecondary,
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.title_history_thread),
+                                maxLines = 1
+                            )
+                        }
+                        SegmentedTab(
                             selected = pagerState.currentPage == 1,
                             onClick = {
                                 coroutineScope.launch {
@@ -126,8 +119,13 @@ fun HistoryPage(
                                 }
                             },
                             selectedContentColor = ExtendedTheme.colors.onTopBar,
-                            unselectedContentColor = ExtendedTheme.colors.onTopBarSecondary
-                        )
+                            unselectedContentColor = ExtendedTheme.colors.onTopBarSecondary,
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.title_history_forum),
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
             )

@@ -98,12 +98,11 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
 import com.huanchengfly.tieba.post.ui.widgets.compose.LocalBarsAutoHideState
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoadHorizontalPager
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
-import com.huanchengfly.tieba.post.ui.widgets.compose.PagerTabIndicator
 import com.huanchengfly.tieba.post.ui.widgets.compose.ProvideContentColor
 import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
-import com.huanchengfly.tieba.post.ui.widgets.compose.ScrollableTabRow
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTab
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTabRow
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
-import com.huanchengfly.tieba.post.ui.widgets.compose.Tab
 import com.huanchengfly.tieba.post.ui.widgets.compose.Toolbar
 import com.huanchengfly.tieba.post.ui.widgets.compose.UserHeader
 import com.huanchengfly.tieba.post.ui.widgets.compose.states.StateScreen
@@ -720,23 +719,19 @@ private fun UserProfileTabRow(
 ) {
     val coroutineScope = rememberCoroutineScope()
 
-    val tabTextStyle = MaterialTheme.typography.button.copy(
-        fontWeight = FontWeight.Bold,
-        fontSize = 13.sp,
-        letterSpacing = 0.sp
-    )
-
-    ScrollableTabRow(
+    SegmentedTabRow(
         selectedTabIndex = pagerState.currentPage,
-        indicator = { PagerTabIndicator(pagerState) },
-        divider = {},
-        backgroundColor = Color.Transparent,
-        contentColor = ExtendedTheme.colors.primary,
-        edgePadding = 0.dp,
-        modifier = modifier.wrapContentWidth(align = Alignment.Start),
+        pagerState = pagerState,
+        onPrimarySurface = false,
+        contentColor = ExtendedTheme.colors.text,
+        equalWidth = false,
+        scrollable = true,
+        minTabWidth = 64.dp,
+        modifier = modifier
+            .padding(horizontal = 16.dp, vertical = 6.dp),
     ) {
         pages.fastForEachIndexed { i, pageData ->
-            Tab(
+            SegmentedTab(
                 selected = pagerState.currentPage == i,
                 onClick = {
                     coroutineScope.launch {
@@ -746,14 +741,7 @@ private fun UserProfileTabRow(
                 selectedContentColor = ExtendedTheme.colors.primary,
                 unselectedContentColor = ExtendedTheme.colors.textSecondary,
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .height(48.dp)
-                        .padding(horizontal = 16.dp)
-                ) {
-                    Text(text = pageData.title(user), style = tabTextStyle)
-                }
+                Text(text = pageData.title(user), maxLines = 1)
             }
         }
     }

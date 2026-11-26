@@ -74,6 +74,8 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
 import com.huanchengfly.tieba.post.ui.widgets.compose.floatingBarColor
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
+import com.huanchengfly.tieba.post.ui.widgets.compose.ThreadFloorSurface
+import com.huanchengfly.tieba.post.ui.widgets.compose.rememberThreadCommentStyle
 import com.huanchengfly.tieba.post.ui.widgets.compose.TitleCentredToolbar
 import com.huanchengfly.tieba.post.ui.widgets.compose.UserHeader
 import com.huanchengfly.tieba.post.ui.widgets.compose.VerticalDivider
@@ -434,7 +436,9 @@ internal fun SubPostsContent(
                                     deleteSubPost = null
                                     confirmDeleteDialogState.show()
                                 }
-                                VerticalDivider(thickness = 2.dp)
+                                if (!rememberThreadCommentStyle().isBoxedCard) {
+                                    VerticalDivider(thickness = 2.dp)
+                                }
                             }
                         }
                     }
@@ -544,13 +548,16 @@ private fun SubPostItem(
         subPost.get { agree?.diffAgreeNum ?: 0L }
     }
     val menuState = rememberMenuState()
+    val commentStyle = rememberThreadCommentStyle()
     BlockableContent(
         blocked = blocked,
         blockedTip = { BlockTip(text = { Text(text = stringResource(id = R.string.tip_blocked_sub_post)) }) },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth(),
     ) {
+        ThreadFloorSurface(
+            style = commentStyle,
+            isFirstFloor = false,
+        ) {
         LongClickMenu(
             menuState = menuState,
             indication = null,
@@ -644,13 +651,14 @@ private fun SubPostItem(
                     Column(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier
-                            .padding(start = Sizes.Small + 8.dp)
+                            .padding(start = if (commentStyle.indentContent) Sizes.Small + 8.dp else 0.dp)
                             .fillMaxWidth()
                     ) {
                         contentRenders.fastForEach { it.Render() }
                     }
                 }
             )
+        }
         }
     }
 }

@@ -3,6 +3,9 @@ package com.huanchengfly.tieba.post.ui.page.main.notifications
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.rememberPagerState
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import androidx.compose.material.Text
@@ -24,10 +27,8 @@ import com.huanchengfly.tieba.post.ui.page.main.notifications.list.Notifications
 import com.huanchengfly.tieba.post.ui.widgets.compose.ActionItem
 import com.huanchengfly.tieba.post.ui.widgets.compose.BackNavigationIcon
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoadHorizontalPager
-import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
-import com.huanchengfly.tieba.post.ui.widgets.compose.PagerTabIndicator
-import com.huanchengfly.tieba.post.ui.widgets.compose.Tab
-import com.huanchengfly.tieba.post.ui.widgets.compose.TabRow
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTab
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTabRow
 import com.huanchengfly.tieba.post.ui.widgets.compose.TitleCentredToolbar
 import com.huanchengfly.tieba.post.ui.widgets.compose.Toolbar
 import com.huanchengfly.tieba.post.ui.widgets.compose.accountNavIconIfCompact
@@ -67,23 +68,29 @@ fun NotificationsPage(
                         }
                     }
                 ) {
-                    TabRow(
+                    SegmentedTabRow(
                         selectedTabIndex = pagerState.currentPage,
-                        indicator = { PagerTabIndicator(pagerState) },
-                        divider = {},
-                        backgroundColor = Color.Transparent,
+                        pagerState = pagerState,
+                        onPrimarySurface = true,
                         contentColor = ExtendedTheme.colors.onTopBar,
+                        equalWidth = true,
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                            .widthIn(max = 360.dp)
+                            .fillMaxWidth(),
                     ) {
                         pages.forEachIndexed { index, pair ->
-                            Tab(
-                                text = { Text(text = pair.first) },
+                            SegmentedTab(
                                 selected = pagerState.currentPage == index,
                                 onClick = {
                                     coroutineScope.launch {
                                         pagerState.animateScrollToPage(index)
                                     }
                                 },
-                            )
+                            ) {
+                                Text(text = pair.first, maxLines = 1)
+                            }
                         }
                     }
                 }
@@ -140,23 +147,29 @@ fun NotificationsPage(
                     }
                 },
             ) {
-                TabRow(
+                SegmentedTabRow(
                     selectedTabIndex = pagerState.currentPage,
-                    indicator = { PagerTabIndicator(pagerState) },
-                    divider = {},
-                    backgroundColor = Color.Transparent,
+                    pagerState = pagerState,
+                    onPrimarySurface = true,
                     contentColor = ExtendedTheme.colors.onTopBar,
+                    equalWidth = true,
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .widthIn(max = 360.dp)
+                        .fillMaxWidth(),
                 ) {
-                    pages.forEachIndexed { index, pair -> 
-                        Tab(
-                            text = { Text(text = pair.first) },
+                    pages.forEachIndexed { index, pair ->
+                        SegmentedTab(
                             selected = pagerState.currentPage == index,
                             onClick = {
                                 coroutineScope.launch {
                                     pagerState.animateScrollToPage(index)
                                 }
                             },
-                        )
+                        ) {
+                            Text(text = pair.first, maxLines = 1)
+                        }
                     }
                 }
             }

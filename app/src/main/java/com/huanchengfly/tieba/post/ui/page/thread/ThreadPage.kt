@@ -4,11 +4,18 @@ import android.net.Uri
 import android.util.Log
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -41,6 +48,7 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ripple
 import androidx.compose.material.ProvideTextStyle
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
@@ -155,6 +163,14 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.PromptDialog
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
 import com.huanchengfly.tieba.post.ui.widgets.compose.TextWithMinWidth
 import com.huanchengfly.tieba.post.ui.widgets.compose.TipScreen
+import com.huanchengfly.tieba.post.ui.widgets.compose.ThreadCommentAgreeButton
+import com.huanchengfly.tieba.post.ui.widgets.compose.ThreadCommentStyle
+import com.huanchengfly.tieba.post.ui.widgets.compose.ThreadFloorSurface
+import com.huanchengfly.tieba.post.ui.widgets.compose.ThreadSubPostItemDivider
+import com.huanchengfly.tieba.post.ui.widgets.compose.ThreadSubPostMoreButton
+import com.huanchengfly.tieba.post.ui.widgets.compose.ThreadSubPostsContainer
+import com.huanchengfly.tieba.post.ui.widgets.compose.rememberThreadCommentStyle
+import com.huanchengfly.tieba.post.ui.widgets.compose.threadCommentHairlineColor
 import com.huanchengfly.tieba.post.ui.widgets.compose.TitleCentredToolbar
 import com.huanchengfly.tieba.post.ui.widgets.compose.UserHeader
 import com.huanchengfly.tieba.post.ui.widgets.compose.VerticalDivider
@@ -208,19 +224,81 @@ fun PostAgreeBtn(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val animatedColor by animateColorAsState(
-        targetValue = if (hasAgreed) ExtendedTheme.colors.accent else ExtendedTheme.colors.textSecondary,
-        label = "postAgreeBtnColor"
-    )
-    Button(
+    ThreadCommentAgreeButton(
+        hasAgreed = hasAgreed,
+        agreeNum = agreeNum,
         onClick = onClick,
-        shape = RoundedCornerShape(4.dp),
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-        colors = ButtonDefaults.buttonColors(
-            backgroundColor = ExtendedTheme.colors.background,
-            contentColor = animatedColor
-        ),
         modifier = modifier
+    )
+}
+
+private val BottomBarPressEasing = CubicBezierEasing(0.25f, 1f, 0.5f, 1f)
+
+@Composable
+private fun BottomBarAgreeBtn(
+    hasAgreed: Boolean,
+    agreeNum: Long,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val accent = ExtendedTheme.colors.accent
+    val color = if (hasAgreed) accent else ExtendedTheme.colors.textSecondary
+    val animatedColor by animateColorAsState(
+        targetValue = color,
+        animationSpec = tween(durationMillis = 220, easing = BottomBarPressEasing),
+        label = "agreeBtnColor"
+    )
+    val pillBgColor by animateColorAsState(
+        targetValue = if (hasAgreed) accent.copy(alpha = 0.14f) else Color.Transparent,
+        animationSpec = tween(durationMillis = 220, easing = BottomBarPressEasing),
+        label = "agreePillBgColor"
+    )
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    // 仅在绘制层缩放：按下微缩反馈 + 点赞成功心跳回弹，不触发布局重测。
+    val pressScale = animateFloatAsState(
+        targetValue = if (isPressed) 0.90f else 1f,
+        animationSpec = tween(durationMillis = 120, easing = BottomBarPressEasing),
+        label = "agreePressScale"
+    )
+    val heartPopScale = remember { Animatable(1f) }
+    var lastAgreed by remember { mutableStateOf(hasAgreed) }
+    LaunchedEffect(hasAgreed) {
+        if (hasAgreed && !lastAgreed) {
+            heartPopScale.snapTo(0.82f)
+            heartPopScale.animateTo(
+                targetValue = 1.24f,
+                animationSpec = tween(durationMillis = 110, easing = BottomBarPressEasing)
+            )
+            heartPopScale.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
+        }
+        lastAgreed = hasAgreed
+    }
+
+    Box(
+        modifier = modifier
+            .graphicsLayer {
+                val s = pressScale.value
+                scaleX = s
+                scaleY = s
+            }
+            .height(38.dp)
+            .defaultMinSize(minWidth = 38.dp)
+            .clip(CircleShape)
+            .background(pillBgColor)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(bounded = true, color = accent),
+                onClick = onClick
+            )
+            .padding(horizontal = if (agreeNum > 0) 10.dp else 8.dp),
+        contentAlignment = Alignment.Center
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -230,55 +308,21 @@ fun PostAgreeBtn(
                 imageVector = if (hasAgreed) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 contentDescription = stringResource(id = R.string.title_agree),
                 tint = animatedColor,
-                modifier = Modifier.size(16.dp)
-            )
-            if (agreeNum > 0) {
-                Text(
-                    text = agreeNum.getShortNumString(),
-                    color = animatedColor,
-                    style = MaterialTheme.typography.caption,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun BottomBarAgreeBtn(
-    hasAgreed: Boolean,
-    agreeNum: Long,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val color = if (hasAgreed) ExtendedTheme.colors.accent else ExtendedTheme.colors.textSecondary
-    val animatedColor by animateColorAsState(color, label = "agreeBtnColor")
-
-    Button(
-        onClick = onClick,
-        shape = RoundedCornerShape(0),
-        contentPadding = PaddingValues(horizontal = 4.dp),
-        colors = ButtonDefaults.buttonColors(
-            backgroundColor = ExtendedTheme.colors.bottomBar,
-            contentColor = animatedColor
-        ),
-        modifier = modifier
-    ) {
-        Row(
-            modifier = Modifier.align(Alignment.CenterVertically),
-            verticalAlignment = Alignment.Top
-        ) {
-            Icon(
-                imageVector = if (hasAgreed) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                contentDescription = stringResource(id = R.string.title_agree),
-                tint = animatedColor
+                modifier = Modifier
+                    .size(20.dp)
+                    .graphicsLayer {
+                        val s = heartPopScale.value
+                        scaleX = s
+                        scaleY = s
+                    }
             )
             if (agreeNum > 0) {
                 Text(
                     text = agreeNum.getShortNumString(),
                     style = MaterialTheme.typography.caption,
                     color = animatedColor,
-                    fontSize = 12.sp
+                    fontSize = 12.sp,
+                    maxLines = 1
                 )
             }
         }
@@ -445,7 +489,7 @@ private fun ThreadLoadMoreIndicator(
 
                     loadMoreEnd -> {
                         Text(
-                            text = stringResource(id = R.string.no_more),
+                            text = stringResource(id = R.string.tip_thread_reached_bottom),
                             modifier = Modifier.padding(horizontal = 8.dp)
                         )
                     }
@@ -1536,6 +1580,33 @@ fun ThreadPage(
                                 if (curSortType != ThreadSortType.SORT_TYPE_DESC) {
                                     latestPosts(false)
                                 }
+                                if (!isRefreshing && !isLoadingMore && !hasMore && data.isNotEmpty()) {
+                                    item(key = "ThreadEndTip") {
+                                        Container {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 24.dp, vertical = 20.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                VerticalDivider(
+                                                    modifier = Modifier.weight(1f),
+                                                    color = ExtendedTheme.colors.divider.copy(alpha = 0.6f),
+                                                )
+                                                Text(
+                                                    text = stringResource(id = R.string.tip_thread_reached_bottom),
+                                                    color = ExtendedTheme.colors.textSecondary,
+                                                    style = MaterialTheme.typography.caption,
+                                                )
+                                                VerticalDivider(
+                                                    modifier = Modifier.weight(1f),
+                                                    color = ExtendedTheme.colors.divider.copy(alpha = 0.6f),
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1622,9 +1693,9 @@ private fun BottomBar(
             modifier = Modifier
                 .height(IntrinsicSize.Min)
                 .then(modifier)
-                .padding(horizontal = 12.dp),
+                .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             if (user.get { is_login } == 1 && !LocalContext.current.appPreferences.hideReply) {
                 Avatar(
@@ -1632,17 +1703,34 @@ private fun BottomBar(
                     size = Sizes.Tiny,
                     contentDescription = user.get { name },
                     modifier = Modifier
-                        .padding(vertical = 8.dp)
+                        .padding(start = 2.dp, top = 8.dp, bottom = 8.dp)
                 )
 
+                val replyInteractionSource = remember { MutableInteractionSource() }
+                val replyPressed by replyInteractionSource.collectIsPressedAsState()
+                val replyScale = animateFloatAsState(
+                    targetValue = if (replyPressed) 0.98f else 1f,
+                    animationSpec = tween(durationMillis = 120, easing = BottomBarPressEasing),
+                    label = "replyInputPressScale"
+                )
                 Row(
                     modifier = Modifier
                         .padding(vertical = 8.dp)
                         .weight(1f)
+                        .graphicsLayer {
+                            val s = replyScale.value
+                            scaleX = s
+                            scaleY = s
+                        }
                         .clip(CircleShape)
                         .background(ExtendedTheme.colors.bottomBarSurface)
-                        .clickable(onClick = onClickReply)
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .clickable(
+                            interactionSource = replyInteractionSource,
+                            indication = ripple(bounded = true, color = ExtendedTheme.colors.primary),
+                            onClick = onClickReply
+                        )
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = stringResource(id = R.string.tip_reply_thread),
@@ -1662,20 +1750,36 @@ private fun BottomBar(
                 hasAgreed = hasAgreed,
                 agreeNum = agreeNum,
                 onClick = onAgree,
-                modifier = Modifier.fillMaxHeight()
             )
 
+            val moreInteractionSource = remember { MutableInteractionSource() }
+            val morePressed by moreInteractionSource.collectIsPressedAsState()
+            val moreScale = animateFloatAsState(
+                targetValue = if (morePressed) 0.88f else 1f,
+                animationSpec = tween(durationMillis = 120, easing = BottomBarPressEasing),
+                label = "moreBtnPressScale"
+            )
             Box(
                 modifier = Modifier
-                    .fillMaxHeight()
-                    .clickable(onClick = onClickMore)
-                    .padding(horizontal = 4.dp),
+                    .graphicsLayer {
+                        val s = moreScale.value
+                        scaleX = s
+                        scaleY = s
+                    }
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = moreInteractionSource,
+                        indication = ripple(bounded = true, color = ExtendedTheme.colors.primary),
+                        onClick = onClickMore
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Rounded.MoreVert,
                     contentDescription = stringResource(id = R.string.btn_more),
                     tint = ExtendedTheme.colors.textSecondary,
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
@@ -1705,9 +1809,11 @@ fun PostCard(
     val context = LocalContext.current
     val navigator = LocalNavigator.current
     val coroutineScope = rememberCoroutineScope()
+    val commentStyle = rememberThreadCommentStyle()
     val post = remember(postHolder) { postHolder.get() }
-    val hasPadding = remember(key1 = postHolder, key2 = immersiveMode) {
-        postHolder.get { floor > 1 } && !immersiveMode
+    val isFirstFloor = post.floor <= 1
+    val hasPadding = remember(key1 = postHolder, key2 = immersiveMode, key3 = commentStyle) {
+        postHolder.get { floor > 1 } && !immersiveMode && commentStyle.indentContent
     }
     val paddingModifier = Modifier.padding(start = if (hasPadding) Sizes.Small + 8.dp else 0.dp)
     val author = postHolder.get { author!! }
@@ -1731,10 +1837,12 @@ fun PostCard(
             }
         },
         hideBlockedContent = context.appPreferences.hideBlockedContent || immersiveMode,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp, horizontal = 16.dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
+        ThreadFloorSurface(
+            style = commentStyle,
+            isFirstFloor = isFirstFloor,
+        ) {
         LongClickMenu(
             menuState = menuState,
             indication = null,
@@ -1876,16 +1984,16 @@ fun PostCard(
                     }
 
                     if (showSubPosts && post.sub_post_number > 0 && subPosts.isNotEmpty() && !immersiveMode) {
-                        Column(
+                        ThreadSubPostsContainer(
+                            style = commentStyle,
                             modifier = Modifier
-                                .fillMaxWidth()
                                 .then(paddingModifier)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(ExtendedTheme.colors.floorCard)
-                                .padding(vertical = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                                .padding(top = 2.dp),
                         ) {
-                            subPosts.fastForEach { item ->
+                            subPosts.forEachIndexed { index, item ->
+                                if (commentStyle == ThreadCommentStyle.SOFT_CARD && index > 0) {
+                                    ThreadSubPostItemDivider()
+                                }
                                 BlockableContent(
                                     blocked = item.blocked,
                                     blockedTip = {
@@ -1917,27 +2025,55 @@ fun PostCard(
                             }
 
                             if (post.sub_post_number > subPosts.size) {
-                                Text(
+                                ThreadSubPostMoreButton(
+                                    style = commentStyle,
                                     text = stringResource(
                                         id = R.string.open_all_sub_posts,
                                         post.sub_post_number
                                     ),
-                                    style = MaterialTheme.typography.caption,
-                                    fontSize = 13.sp,
-                                    color = ExtendedTheme.colors.accent,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 2.dp)
-                                        .clickable {
-                                            onOpenSubPosts(0)
-                                        }
-                                        .padding(horizontal = 12.dp)
+                                    onClick = { onOpenSubPosts(0) }
                                 )
+                            }
+                        }
+                    }
+
+                    if (!isFirstFloor && commentStyle == ThreadCommentStyle.COMPACT_QUOTE && !immersiveMode && !context.appPreferences.hideReply) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            VerticalDivider(
+                                thickness = 0.5.dp,
+                                color = threadCommentHairlineColor()
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(id = R.string.tip_thread_card_click_reply),
+                                    color = ExtendedTheme.colors.textSecondary,
+                                    fontSize = 11.5.sp
+                                )
+                                if (post.sub_post_number > 0) {
+                                    Text(
+                                        text = stringResource(
+                                            id = R.string.title_thread_card_sub_count,
+                                            post.sub_post_number
+                                        ),
+                                        color = ExtendedTheme.colors.textSecondary,
+                                        fontSize = 11.5.sp
+                                    )
+                                }
                             }
                         }
                     }
                 }
             )
+        }
         }
     }
 }

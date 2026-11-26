@@ -369,13 +369,13 @@ fun CustomSettingsPage(
                 )
             }
             prefsItem {
-                // 帖子卡片视觉样式：默认色调胶囊卡（方案 D），同时提供柔和浮卡（A）、极简通栏（B）、原版四种切换。
+                // 帖子卡片视觉样式：默认柔和浮卡（方案 A），同时提供色调胶囊卡（D）、极简通栏（B）、原版四种切换。
                 // 键名必须与 FeedCardStylePrefKey（feed_card_style）一致。
                 ListPref(
                     key = "feed_card_style",
                     title = stringResource(id = R.string.title_feed_card_style),
                     summary = stringResource(id = R.string.summary_feed_card_style),
-                    defaultValue = "tonal_capsule",
+                    defaultValue = "elevated",
                     useSelectedAsSummary = true,
                     leadingIcon = {
                         LeadingIcon {
@@ -387,10 +387,35 @@ fun CustomSettingsPage(
                         }
                     },
                     entries = mapOf(
-                        "tonal_capsule" to stringResource(id = R.string.entry_feed_card_style_tonal_capsule),
                         "elevated" to stringResource(id = R.string.entry_feed_card_style_elevated),
+                        "tonal_capsule" to stringResource(id = R.string.entry_feed_card_style_tonal_capsule),
                         "minimal" to stringResource(id = R.string.entry_feed_card_style_minimal),
                         "classic" to stringResource(id = R.string.entry_feed_card_style_classic),
+                    ),
+                )
+            }
+            prefsItem {
+                // 帖子评论与楼中楼卡片样式：默认引导线楼中楼（方案 B），同时提供柔和浮卡（A）、全宽浮卡引用（C）切换。
+                // 键名必须与 ThreadCommentStylePrefKey（thread_comment_style）一致。
+                ListPref(
+                    key = "thread_comment_style",
+                    title = stringResource(id = R.string.title_thread_comment_style),
+                    summary = stringResource(id = R.string.summary_thread_comment_style),
+                    defaultValue = "clean_stream",
+                    useSelectedAsSummary = true,
+                    leadingIcon = {
+                        LeadingIcon {
+                            AvatarIcon(
+                                icon = Icons.Outlined.ViewAgenda,
+                                size = Sizes.Small,
+                                contentDescription = null,
+                            )
+                        }
+                    },
+                    entries = mapOf(
+                        "clean_stream" to stringResource(id = R.string.entry_thread_comment_style_clean_stream),
+                        "soft_card" to stringResource(id = R.string.entry_thread_comment_style_soft_card),
+                        "compact_quote" to stringResource(id = R.string.entry_thread_comment_style_compact_quote),
                     ),
                 )
             }

@@ -42,6 +42,9 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.FeedCardStylePrefKey
 import com.huanchengfly.tieba.post.ui.widgets.compose.FloatingBarStyle
 import com.huanchengfly.tieba.post.ui.widgets.compose.FloatingBarStylePrefKey
 import com.huanchengfly.tieba.post.ui.widgets.compose.LocalFeedCardStyle
+import com.huanchengfly.tieba.post.ui.widgets.compose.LocalThreadCommentStyle
+import com.huanchengfly.tieba.post.ui.widgets.compose.ThreadCommentStyle
+import com.huanchengfly.tieba.post.ui.widgets.compose.ThreadCommentStylePrefKey
 import com.huanchengfly.tieba.post.ui.widgets.compose.LocalFloatingBarStyle
 import com.huanchengfly.tieba.post.utils.RefreshRateUtil
 import com.huanchengfly.tieba.post.utils.AccountUtil.LocalAccountProvider
@@ -112,7 +115,11 @@ abstract class BaseComposeActivity : BaseActivity() {
                     val barsAutoHideState = rememberBarsAutoHideState()
                     val feedCardStylePref by rememberPreferenceAsState(
                         key = stringPreferencesKey(FeedCardStylePrefKey),
-                        defaultValue = appPreferences.feedCardStyle ?: FeedCardStyle.TONAL_CAPSULE.prefValue,
+                        defaultValue = appPreferences.feedCardStyle ?: FeedCardStyle.ELEVATED.prefValue,
+                    )
+                    val threadCommentStylePref by rememberPreferenceAsState(
+                        key = stringPreferencesKey(ThreadCommentStylePrefKey),
+                        defaultValue = appPreferences.threadCommentStyle ?: ThreadCommentStyle.CLEAN_STREAM.prefValue,
                     )
                     val floatingBarStylePref by rememberPreferenceAsState(
                         key = stringPreferencesKey(FloatingBarStylePrefKey),
@@ -129,6 +136,7 @@ abstract class BaseComposeActivity : BaseActivity() {
                         LocalWindowSizeClass provides windowSizeClass,
                         LocalBarsAutoHideState provides barsAutoHideState,
                         LocalFeedCardStyle provides FeedCardStyle.of(feedCardStylePref),
+                        LocalThreadCommentStyle provides ThreadCommentStyle.of(threadCommentStylePref),
                         LocalFloatingBarStyle provides FloatingBarStyle.of(floatingBarStylePref),
                     ) {
                         // 根部铺主题底色：窗口与多数页面的 Scaffold 背景都是 Transparent，

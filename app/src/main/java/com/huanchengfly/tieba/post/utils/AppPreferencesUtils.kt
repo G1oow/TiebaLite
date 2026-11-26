@@ -175,12 +175,21 @@ open class AppPreferencesUtils private constructor(ctx: Context) {
     )
 
     /**
-     * 帖子卡片视觉样式："tonal_capsule"（方案 D，默认）/"elevated"（方案 A）/"minimal"（方案 B）/"classic"（原版）。
+     * 帖子卡片视觉样式："elevated"（方案 A 柔和浮卡，默认）/"tonal_capsule"（方案 D）/"minimal"（方案 B）/"classic"（原版）。
      * 键名与 [com.huanchengfly.tieba.post.ui.widgets.compose.FeedCardStylePrefKey] 一致。
      */
     var feedCardStyle by DataStoreDelegates.string(
-        defaultValue = "tonal_capsule",
+        defaultValue = "elevated",
         key = "feed_card_style"
+    )
+
+    /**
+     * 帖子详情页评论与楼中楼卡片样式："clean_stream"（方案 B 引导线楼中楼，默认）/"soft_card"（方案 A 柔和浮卡）/"compact_quote"（方案 C 全宽引用浮卡）。
+     * 键名与 [com.huanchengfly.tieba.post.ui.widgets.compose.ThreadCommentStylePrefKey] 一致。
+     */
+    var threadCommentStyle by DataStoreDelegates.string(
+        defaultValue = "clean_stream",
+        key = "thread_comment_style"
     )
 
     /**
