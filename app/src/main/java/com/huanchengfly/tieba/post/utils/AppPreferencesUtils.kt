@@ -173,6 +173,15 @@ open class AppPreferencesUtils private constructor(ctx: Context) {
         defaultValue = "shadow",
         key = "floating_bar_style"
     )
+
+    /**
+     * 帖子卡片视觉样式："tonal_capsule"（方案 D，默认）/"elevated"（方案 A）/"minimal"（方案 B）/"classic"（原版）。
+     * 键名与 [com.huanchengfly.tieba.post.ui.widgets.compose.FeedCardStylePrefKey] 一致。
+     */
+    var feedCardStyle by DataStoreDelegates.string(
+        defaultValue = "tonal_capsule",
+        key = "feed_card_style"
+    )
     var listItemsBackgroundIntermixed by DataStoreDelegates.boolean(defaultValue = true)
 
     var listSingle by DataStoreDelegates.boolean(defaultValue = false)

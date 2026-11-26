@@ -24,7 +24,7 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
 import com.huanchengfly.tieba.post.ui.widgets.compose.LoadMoreLayout
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
 import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
-import com.huanchengfly.tieba.post.ui.widgets.compose.VerticalDivider
+import com.huanchengfly.tieba.post.ui.widgets.compose.FeedListDivider
 import kotlinx.collections.immutable.persistentListOf
 
 @Composable
@@ -109,7 +109,7 @@ fun ConcernPage(
                                     onClickUser = { navigator.navigate("user/${it.id}") },
                                 )
                                 if (index < data.size - 1) {
-                                    VerticalDivider(
+                                    FeedListDivider(
                                         modifier = Modifier.padding(horizontal = 16.dp),
                                         thickness = 2.dp
                                     )

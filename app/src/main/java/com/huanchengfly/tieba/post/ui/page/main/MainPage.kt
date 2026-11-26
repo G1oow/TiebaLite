@@ -2,8 +2,10 @@ package com.huanchengfly.tieba.post.ui.page.main
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.graphics.res.animatedVectorResource
+import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
@@ -258,14 +260,25 @@ fun MainPage(
     // 切换 tab 时把栏复位：pager 会缓存复用页面内容，不会重新触发 MyScaffold 的
     // 首次组合复位，若不显式处理，切回已访问过的 tab 会保持「栏已收起」的状态。
     val barsAutoHideState = LocalBarsAutoHideState.current
-    val currentPageIndex = pagerState.currentPage
+    val currentPageIndex = pagerState.targetPage
     LaunchedEffect(currentPageIndex) {
         barsAutoHideState?.show()
     }
+    val tabSwitchSpec = remember {
+        tween<Float>(
+            durationMillis = 340,
+            easing = CubicBezierEasing(0.25f, 1f, 0.5f, 1f),
+        )
+    }
+    val switchToTab: (Int) -> Unit = { target ->
+        coroutineScope.launch {
+            pagerState.animateScrollToPage(page = target, animationSpec = tabSwitchSpec)
+        }
+    }
     ProvideNavigator(navigator = navigator) {
         NavigationWrapper(
-            currentPosition = pagerState.currentPage,
-            onChangePosition = { coroutineScope.launch { pagerState.scrollToPage(it) } },
+            currentPosition = currentPageIndex,
+            onChangePosition = switchToTab,
             onReselected = onReselected,
             navigationItems = navigationItems,
             navigationType = navigationType,
@@ -277,10 +290,8 @@ fun MainPage(
                 bottomBar = {
                     AnimatedVisibility(visible = navigationType == MainNavigationType.BOTTOM_NAVIGATION) {
                         BottomNavigation(
-                            currentPosition = pagerState.currentPage,
-                            onChangePosition = {
-                                coroutineScope.launch { pagerState.scrollToPage(it) }
-                            },
+                            currentPosition = currentPageIndex,
+                            onChangePosition = switchToTab,
                             onReselected = onReselected,
                             navigationItems = navigationItems,
                             themeColors = themeColors,
@@ -294,6 +305,7 @@ fun MainPage(
                     LazyLoadHorizontalPager(
                         contentPadding = PaddingValues(0.dp),
                         state = pagerState,
+                        beyondViewportPageCount = 1,
                         key = { navigationItems[it].id },
                         modifier = Modifier.fillMaxSize(),
                         verticalAlignment = Alignment.Top,
@@ -305,10 +317,8 @@ fun MainPage(
             }
         }
     }
-    BackHandler(enabled = pagerState.currentPage != 0) {
-        coroutineScope.launch {
-            pagerState.scrollToPage(0)
-        }
+    BackHandler(enabled = currentPageIndex != 0) {
+        switchToTab(0)
     }
 }
 

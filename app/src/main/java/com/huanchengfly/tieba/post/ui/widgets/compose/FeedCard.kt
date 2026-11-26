@@ -746,6 +746,184 @@ fun ThreadShareBtn(
 }
 
 @Composable
+private fun StyledFeedCardBody(
+    style: FeedCardStyle,
+    authorPortrait: String?,
+    authorName: String,
+    authorNameShow: String,
+    timeInt: Int,
+    forumName: String?,
+    forumAvatar: String?,
+    replyNum: Int,
+    agreeNum: Int,
+    hasAgree: Boolean,
+    onClick: () -> Unit,
+    onClickReply: () -> Unit,
+    onAgree: () -> Unit,
+    onClickUser: () -> Unit,
+    onClickForum: () -> Unit,
+    modifier: Modifier = Modifier,
+    dislikeAction: @Composable () -> Unit = {},
+    classicHeader: @Composable ColumnScope.() -> Unit,
+    contentBlock: @Composable ColumnScope.() -> Unit,
+    classicAction: @Composable ColumnScope.() -> Unit,
+) {
+    val context = LocalContext.current
+    val relativeTime = remember(timeInt) {
+        DateTimeUtils.getRelativeTimeString(context, timeInt.toString())
+    }
+    val textColor = ExtendedTheme.colors.text
+    val authorAnnotated = remember(authorName, authorNameShow, textColor) {
+        StringUtil.getUsernameAnnotatedString(
+            context = context,
+            username = authorName,
+            nickname = authorNameShow,
+            color = textColor,
+        )
+    }
+
+    when (style) {
+        FeedCardStyle.CLASSIC -> {
+            Card(
+                header = classicHeader,
+                content = {
+                    contentBlock()
+                    if (!forumName.isNullOrBlank()) {
+                        ThreadForumInfo(
+                            forumName = forumName,
+                            forumAvatar = forumAvatar,
+                            onClick = onClickForum,
+                        )
+                    }
+                },
+                action = classicAction,
+                onClick = onClick,
+                modifier = modifier,
+            )
+        }
+
+        FeedCardStyle.ELEVATED -> {
+            // 方案 A：M3 柔和浮卡（带作者头、16dp 圆角、纯黑自动去描边），吧名收进底栏左侧。
+            StyledFeedCardSurface(
+                style = style,
+                onClick = onClick,
+                modifier = modifier,
+                innerPaddingBottom = 8.dp,
+            ) {
+                classicHeader()
+                contentBlock()
+                ElevatedFeedFooter(
+                    forumName = forumName,
+                    forumAvatar = forumAvatar,
+                    onClickForum = onClickForum,
+                    replyNum = replyNum,
+                    agreeNum = agreeNum,
+                    hasAgree = hasAgree,
+                    onClickReply = onClickReply,
+                    onAgree = onAgree,
+                )
+            }
+        }
+
+        FeedCardStyle.MINIMAL -> {
+            // 方案 B：极简通栏流（22dp 单行轻头部 + 更大呼吸感正文 + 轻量操作计数）。
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onClick)
+                    .then(modifier)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (authorName.isNotBlank() || authorNameShow.isNotBlank()) {
+                    CompactAuthorRow(
+                        avatarPortrait = authorPortrait,
+                        authorName = authorAnnotated,
+                        timeText = relativeTime,
+                        avatarSize = 22.dp,
+                        onClickUser = onClickUser,
+                        trailing = dislikeAction,
+                    )
+                }
+                contentBlock()
+                MinimalFeedFooter(
+                    forumName = forumName,
+                    forumAvatar = forumAvatar,
+                    onClickForum = onClickForum,
+                    replyNum = replyNum,
+                    agreeNum = agreeNum,
+                    hasAgree = hasAgree,
+                    onClickReply = onClickReply,
+                    onAgree = onAgree,
+                )
+            }
+        }
+
+        FeedCardStyle.TONAL_CAPSULE -> {
+            // 方案 D（默认）：18dp 大圆角无描边色调表面，吧名置顶左上角、点赞/评论采用胶囊按钮。
+            StyledFeedCardSurface(
+                style = style,
+                onClick = onClick,
+                modifier = modifier,
+                innerPaddingBottom = 12.dp,
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    if (!forumName.isNullOrBlank()) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            FeedForumPill(
+                                forumName = forumName,
+                                forumAvatar = forumAvatar,
+                                onClick = onClickForum,
+                            )
+                            if (authorName.isNotBlank() || authorNameShow.isNotBlank()) {
+                                Text(
+                                    text = "${authorAnnotated.text} · $relativeTime",
+                                    color = ExtendedTheme.colors.textSecondary,
+                                    fontSize = 12.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier
+                                        .weight(1f, fill = false)
+                                        .clickable(onClick = onClickUser),
+                                )
+                            }
+                        }
+                    } else if (authorName.isNotBlank() || authorNameShow.isNotBlank()) {
+                        CompactAuthorRow(
+                            avatarPortrait = authorPortrait,
+                            authorName = authorAnnotated,
+                            timeText = relativeTime,
+                            avatarSize = 26.dp,
+                            onClickUser = onClickUser,
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                    dislikeAction()
+                }
+                contentBlock()
+                TonalCapsuleFeedFooter(
+                    replyNum = replyNum,
+                    agreeNum = agreeNum,
+                    hasAgree = hasAgree,
+                    onClickReply = onClickReply,
+                    onAgree = onAgree,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun FeedCard(
     item: ImmutableHolder<ThreadInfo>,
     onClick: (ThreadInfo) -> Unit,
@@ -757,9 +935,28 @@ fun FeedCard(
     onClickOriginThread: (OriginThreadInfo) -> Unit = {},
     dislikeAction: @Composable () -> Unit = {},
 ) {
-    Card(
-        header = {
-            val author = remember(item) { item.getNullableImmutable { author } }
+    val style = rememberFeedCardStyle()
+    val author = remember(item) { item.getNullableImmutable { author } }
+    val forumInfo = remember(item) { item.getNullableImmutable { forumInfo } }
+    StyledFeedCardBody(
+        style = style,
+        authorPortrait = author?.get { portrait },
+        authorName = author?.get { name }.orEmpty(),
+        authorNameShow = author?.get { nameShow }.orEmpty(),
+        timeInt = item.get { lastTimeInt },
+        forumName = forumInfo?.get { name },
+        forumAvatar = forumInfo?.get { avatar },
+        replyNum = item.get { replyNum },
+        agreeNum = item.get { agreeNum },
+        hasAgree = item.get { agree?.hasAgree == 1 },
+        onClick = { onClick(item.get()) },
+        onClickReply = { onClickReply(item.get()) },
+        onAgree = { onAgree(item.get()) },
+        onClickUser = { author?.let { onClickUser(it.get()) } },
+        onClickForum = { forumInfo?.let { onClickForum(it.get()) } },
+        modifier = modifier,
+        dislikeAction = dislikeAction,
+        classicHeader = {
             author?.let {
                 UserHeader(
                     userProvider = { it },
@@ -770,7 +967,7 @@ fun FeedCard(
                 ) { dislikeAction() }
             }
         },
-        content = {
+        contentBlock = {
             ThreadContent(
                 title = item.get { title },
                 abstractText = item.get { abstractText },
@@ -789,18 +986,16 @@ fun FeedCard(
                     OriginThreadCard(
                         originThreadInfo = it,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(ExtendedTheme.colors.floorCard)
                             .clickable {
                                 onClickOriginThread(it.get())
                             }
-                            .padding(16.dp)
+                            .padding(14.dp)
                     )
                 }
-
-            ThreadForumInfo(item = item, onClick = onClickForum)
         },
-        action = {
+        classicAction = {
             Row(modifier = Modifier.fillMaxWidth()) {
                 ThreadShareBtn(
                     shareNum = item.get { shareNum },
@@ -822,8 +1017,6 @@ fun FeedCard(
                 )
             }
         },
-        onClick = { onClick(item.get()) },
-        modifier = modifier,
     )
 }
 
@@ -838,8 +1031,26 @@ fun FeedCard(
     onClickForum: (name: String) -> Unit = {},
     onClickOriginThread: (OriginThreadInfo) -> Unit = {},
 ) {
-    Card(
-        header = {
+    val style = rememberFeedCardStyle()
+    val forumName = item.get { forum_name }
+    StyledFeedCardBody(
+        style = style,
+        authorPortrait = item.get { user_portrait },
+        authorName = item.get { user_name },
+        authorNameShow = item.get { name_show },
+        timeInt = item.get { create_time },
+        forumName = forumName,
+        forumAvatar = null,
+        replyNum = item.get { reply_num },
+        agreeNum = item.get { agree_num },
+        hasAgree = item.get { agree?.hasAgree == 1 },
+        onClick = { onClick(item.get()) },
+        onClickReply = { onClickReply(item.get()) },
+        onAgree = { onAgree(item.get()) },
+        onClickUser = { onClickUser(item.get { user_id }) },
+        onClickForum = { onClickForum(forumName) },
+        modifier = modifier,
+        classicHeader = {
             UserHeader(
                 nameProvider = { item.get { user_name } },
                 nameShowProvider = { item.get { name_show } },
@@ -850,7 +1061,7 @@ fun FeedCard(
                 },
             )
         },
-        content = {
+        contentBlock = {
             ThreadContent(
                 title = item.get { title },
                 abstractText = item.get { abstractText },
@@ -860,7 +1071,7 @@ fun FeedCard(
 
             ThreadMedia(
                 forumId = item.get { forum_id },
-                forumName = item.get { forum_name },
+                forumName = forumName,
                 threadId = item.get { thread_id },
                 medias = item.getImmutableList { media },
                 videoInfo = item.getNullableImmutable { video_info }
@@ -871,22 +1082,16 @@ fun FeedCard(
                     OriginThreadCard(
                         originThreadInfo = it,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(ExtendedTheme.colors.floorCard)
                             .clickable {
                                 onClickOriginThread(it.get())
                             }
-                            .padding(16.dp)
+                            .padding(14.dp)
                     )
                 }
-
-            ThreadForumInfo(
-                forumName = item.get { forum_name },
-                forumAvatar = null,
-                onClick = { onClickForum(item.get { forum_name }) }
-            )
         },
-        action = {
+        classicAction = {
             Row(modifier = Modifier.fillMaxWidth()) {
                 ThreadShareBtn(
                     shareNum = item.get { share_num }.toLong(),
@@ -908,11 +1113,8 @@ fun FeedCard(
                 )
             }
         },
-        onClick = { onClick(item.get()) },
-        modifier = modifier,
     )
 }
-
 @Composable
 private fun ActionBtnPlaceholder(
     modifier: Modifier = Modifier,

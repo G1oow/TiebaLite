@@ -500,6 +500,12 @@
     <string name="summary_floating_bar_style">选择胶囊底栏「层次感」的来源，切换后立即生效</string>
     <string name="entry_floating_bar_style_shadow">阴影 · 双层投影 + 描边</string>
     <string name="entry_floating_bar_style_tonal">色调 · 平面分层 + 描边</string>
+    <string name="title_feed_card_style">帖子卡片样式</string>
+    <string name="summary_feed_card_style">选择信息流与吧内帖子列表的卡片视觉样式，切换后立即生效</string>
+    <string name="entry_feed_card_style_tonal_capsule">色调胶囊卡（默认）</string>
+    <string name="entry_feed_card_style_elevated">柔和浮卡</string>
+    <string name="entry_feed_card_style_minimal">极简通栏流</string>
+    <string name="entry_feed_card_style_classic">原版样式</string>
     <string name="button_open">打开</string>
     <string name="btn_hide">隐藏</string>
     <string name="desc_search_sug">搜索联想：%s</string>

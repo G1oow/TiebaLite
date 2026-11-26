@@ -65,8 +65,8 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.LoadMoreLayout
 import com.huanchengfly.tieba.post.ui.widgets.compose.LocalBarsContentPadding
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
 import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
+import com.huanchengfly.tieba.post.ui.widgets.compose.FeedListDivider
 import com.huanchengfly.tieba.post.ui.widgets.compose.RefreshIndicatorContainerSize
-import com.huanchengfly.tieba.post.ui.widgets.compose.VerticalDivider
 import com.huanchengfly.tieba.post.ui.widgets.compose.states.StateScreen
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -351,7 +351,7 @@ private fun FeedList(
                                     }
                                 }
                                 if (showDivider) {
-                                    VerticalDivider(
+                                    FeedListDivider(
                                         modifier = Modifier.padding(horizontal = 16.dp),
                                         thickness = 2.dp
                                     )

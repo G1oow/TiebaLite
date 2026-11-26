@@ -138,11 +138,28 @@ private fun InfoCard(
 ) {
     Row(
         modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (avatar != null) {
+            Avatar(
+                data = avatar,
+                size = Sizes.Large,
+                contentDescription = stringResource(id = R.string.desc_user_avatar),
+                modifier = Modifier
+                    .placeholder(visible = isPlaceholder, color = ExtendedTheme.colors.chip),
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+        } else if (isPlaceholder) {
+            Box(
+                modifier = Modifier
+                    .size(Sizes.Large)
+                    .clip(CircleShape)
+                    .placeholder(visible = true, color = ExtendedTheme.colors.chip)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+        }
         Column(
-            modifier = Modifier
-                .weight(1f)
-                .align(Alignment.Bottom)
+            modifier = Modifier.weight(1f)
         ) {
             Text(
                 text = userName,
@@ -160,17 +177,6 @@ private fun InfoCard(
                 color = ExtendedTheme.colors.textSecondary,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .placeholder(visible = isPlaceholder, color = ExtendedTheme.colors.chip),
-            )
-        }
-        Spacer(modifier = Modifier.width(16.dp))
-        if (avatar != null) {
-            Avatar(
-                data = avatar,
-                size = Sizes.Large,
-                contentDescription = stringResource(id = R.string.desc_user_avatar),
-                modifier = Modifier
-                    .align(Alignment.Bottom)
                     .placeholder(visible = isPlaceholder, color = ExtendedTheme.colors.chip),
             )
         }
@@ -207,22 +213,8 @@ private fun RowScope.StatCardItem(
 private fun LoginTipCard(modifier: Modifier = Modifier) {
     Row(
         modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .align(Alignment.Bottom)
-        ) {
-            Text(
-                text = stringResource(id = R.string.tip_login),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = ExtendedTheme.colors.text,
-                modifier = Modifier
-                    .fillMaxWidth(),
-            )
-        }
-        Spacer(modifier = Modifier.width(16.dp))
         Icon(
             imageVector = Icons.Rounded.AccountCircle,
             contentDescription = null,
@@ -233,6 +225,19 @@ private fun LoginTipCard(modifier: Modifier = Modifier) {
                 .background(color = ExtendedTheme.colors.chip)
                 .padding(16.dp),
         )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = stringResource(id = R.string.tip_login),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = ExtendedTheme.colors.text,
+                modifier = Modifier
+                    .fillMaxWidth(),
+            )
+        }
     }
 }
 

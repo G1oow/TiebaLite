@@ -2,8 +2,7 @@ package com.huanchengfly.tieba.post.ui.page.main
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
@@ -58,10 +57,12 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -412,9 +413,15 @@ private val FloatingItemHeight = 56.dp
 private val SelectedPillWidth = 64.dp
 private val SelectedPillHeight = 44.dp
 private val SelectedPillShape: Shape = RoundedCornerShape(percent = 50)
-
 /** 标签行占位高度：始终预留，图标因此不会在选中/未选中之间上下跳。 */
 private val FloatingLabelHeight = 12.dp
+/**
+ * 底栏滑块使用的「先快后慢」减速曲线（EaseOutQuart）：
+ * 起步敏捷（前 20% 时间走过 ~60% 行程），后半程平滑长减速轻柔刹停，
+ * 既避免 FastOutSlowIn 开头滞重，也避免过陡曲线首帧瞬移感。
+ */
+private val BottomBarSliderEasing = CubicBezierEasing(0.25f, 1f, 0.5f, 1f)
+private const val BottomBarSliderDurationMs = 360
 
 /**
  * 主界面底部导航（胶囊悬浮样式）。
@@ -444,17 +451,23 @@ fun BottomNavigation(
                 .fillMaxWidth()
                 .height(FloatingItemHeight),
         ) {
+            val density = LocalDensity.current
             val itemCount = navigationItems.size.coerceAtLeast(1)
-            val cellWidth = maxWidth / itemCount
-            val indicatorOffset by animateDpAsState(
-                targetValue = cellWidth * currentPosition + (cellWidth - SelectedPillWidth) / 2,
-                animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+            val cellWidthPx = with(density) { (maxWidth / itemCount).toPx() }
+            val pillWidthPx = with(density) { SelectedPillWidth.toPx() }
+            val indicatorOffsetPx by animateFloatAsState(
+                targetValue = cellWidthPx * currentPosition + (cellWidthPx - pillWidthPx) / 2f,
+                animationSpec = tween(
+                    durationMillis = BottomBarSliderDurationMs,
+                    easing = BottomBarSliderEasing,
+                ),
+                label = "BottomBarSliderOffset",
             )
-            // 滑块画在入口下面（先声明 = 先绘制），滑过时图标压在它上面。
+            // 滑块画在入口下面（先声明 = 先绘制），位移放进 graphicsLayer 绘制层避免每帧触发布局。
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .offset(x = indicatorOffset)
+                    .graphicsLayer { translationX = indicatorOffsetPx }
                     .size(SelectedPillWidth, SelectedPillHeight)
                     .clip(SelectedPillShape)
                     .background(indicatorFill)
@@ -538,9 +551,15 @@ private fun FloatingNavigationItem(
     unselectedContentColor: Color,
 ) {
     val contentColor by animateColorAsState(
-        targetValue = if (selected) selectedContentColor else unselectedContentColor
+        targetValue = if (selected) selectedContentColor else unselectedContentColor,
+        animationSpec = tween(durationMillis = 220, easing = BottomBarSliderEasing),
+        label = "BottomBarItemColor",
     )
-    val labelAlpha by animateFloatAsState(if (selected) 1f else 0f)
+    val labelAlpha by animateFloatAsState(
+        targetValue = if (selected) 1f else 0f,
+        animationSpec = tween(durationMillis = 220, easing = BottomBarSliderEasing),
+        label = "BottomBarLabelAlpha",
+    )
     Row(
         modifier = modifier
             .fillMaxHeight()

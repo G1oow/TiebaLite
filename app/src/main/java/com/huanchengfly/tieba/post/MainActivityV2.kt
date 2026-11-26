@@ -16,9 +16,12 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -583,47 +586,37 @@ class MainActivityV2 : BaseComposeActivity() {
                         sheetBackgroundColor = ExtendedTheme.colors.windowBackground,
                         scrimColor = Color.Black.copy(alpha = 0.32f),
                     ) {
+                        // 页面路由转场：全站页面使用 TranslucentThemeBackground + 透明 Scaffold，
+                        // 两页重叠会直接透出前一页内容，因此必须采用严丝合缝的整屏并排滑入/滑出（0 重叠），
+                        // 配合与底栏一致的先快后慢减速曲线（EaseOutQuart）保证利落跟手。
+                        val pageEasing = remember { CubicBezierEasing(0.25f, 1f, 0.5f, 1f) }
+                        val enterDurationMs = 320
+                        val popDurationMs = 280
                         NavHost(
                             navController = navController,
                             startDestination = Routes.MAIN,
                             enterTransition = {
                                 slideIntoContainer(
-                                    AnimatedContentTransitionScope.SlideDirection.Start,
-                                    animationSpec = spring(
-                                        stiffness = Spring.StiffnessMediumLow,
-                                        visibilityThreshold = IntOffset.VisibilityThreshold
-                                    ),
-                                    initialOffset = { it }
+                                    towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                                    animationSpec = tween(durationMillis = enterDurationMs, easing = pageEasing),
                                 )
                             },
                             exitTransition = {
                                 slideOutOfContainer(
-                                    AnimatedContentTransitionScope.SlideDirection.End,
-                                    animationSpec = spring(
-                                        stiffness = Spring.StiffnessMediumLow,
-                                        visibilityThreshold = IntOffset.VisibilityThreshold
-                                    ),
-                                    targetOffset = { -it }
+                                    towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                                    animationSpec = tween(durationMillis = enterDurationMs, easing = pageEasing),
                                 )
                             },
                             popEnterTransition = {
                                 slideIntoContainer(
-                                    AnimatedContentTransitionScope.SlideDirection.Start,
-                                    animationSpec = spring(
-                                        stiffness = Spring.StiffnessMediumLow,
-                                        visibilityThreshold = IntOffset.VisibilityThreshold
-                                    ),
-                                    initialOffset = { -it }
+                                    towards = AnimatedContentTransitionScope.SlideDirection.End,
+                                    animationSpec = tween(durationMillis = popDurationMs, easing = pageEasing),
                                 )
                             },
                             popExitTransition = {
                                 slideOutOfContainer(
-                                    AnimatedContentTransitionScope.SlideDirection.End,
-                                    animationSpec = spring(
-                                        stiffness = Spring.StiffnessMediumLow,
-                                        visibilityThreshold = IntOffset.VisibilityThreshold
-                                    ),
-                                    targetOffset = { it }
+                                    towards = AnimatedContentTransitionScope.SlideDirection.End,
+                                    animationSpec = tween(durationMillis = popDurationMs, easing = pageEasing),
                                 )
                             }
                         ) {
