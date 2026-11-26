@@ -605,9 +605,12 @@ private fun SubPostItem(
             },
             onClick = { onReplyClick(subPost.get()) }.takeUnless { context.appPreferences.hideReply }
         ) {
-            Card(
-                header = {
-                    if (author != null) {
+            // 外层 ThreadFloorSurface 已统一负责卡片内外边距，此处去掉 Card 自带的 16dp 水平/垂直 padding 避免双重内缩。
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (author != null) {
                         UserHeader(
                             avatar = {
                                 Avatar(
@@ -645,19 +648,16 @@ private fun SubPostItem(
                                 onClick = { onAgree(subPost.get()) }
                             )
                         }
-                    }
-                },
-                content = {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier
-                            .padding(start = if (commentStyle.indentContent) Sizes.Small + 8.dp else 0.dp)
-                            .fillMaxWidth()
-                    ) {
-                        contentRenders.fastForEach { it.Render() }
-                    }
                 }
-            )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .padding(start = if (commentStyle.indentContent) Sizes.Small + 8.dp else 0.dp)
+                        .fillMaxWidth()
+                ) {
+                    contentRenders.fastForEach { it.Render() }
+                }
+            }
         }
         }
     }
