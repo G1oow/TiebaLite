@@ -4,14 +4,17 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -49,6 +52,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -75,6 +79,9 @@ import com.huanchengfly.tieba.post.ui.utils.topBarInsetsPadding
 import com.huanchengfly.tieba.post.ui.widgets.compose.AccountNavIcon
 import com.huanchengfly.tieba.post.ui.widgets.compose.FloatingBottomBar
 import com.huanchengfly.tieba.post.ui.widgets.compose.floatingBarColor
+import com.huanchengfly.tieba.post.ui.widgets.compose.floatingBarIndicatorBorderColor
+import com.huanchengfly.tieba.post.ui.widgets.compose.floatingBarIndicatorColor
+import com.huanchengfly.tieba.post.ui.widgets.compose.rememberFloatingBarStyle
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
 import com.huanchengfly.tieba.post.utils.AccountUtil.LocalAccount
@@ -399,6 +406,17 @@ fun BottomNavigationDivider(
 private val FloatingItemHeight = 56.dp
 
 /**
+ * 选中项胶囊底：固定 64×44dp，四项共用同一尺寸（未选中时不画底，但照样占位）。
+ * 固定尺寸是「展开均匀」的前提——位置只由四等分的单元决定，与标签文字长短无关。
+ */
+private val SelectedPillWidth = 64.dp
+private val SelectedPillHeight = 44.dp
+private val SelectedPillShape: Shape = RoundedCornerShape(percent = 50)
+
+/** 标签行占位高度：始终预留，图标因此不会在选中/未选中之间上下跳。 */
+private val FloatingLabelHeight = 12.dp
+
+/**
  * 主界面底部导航（胶囊悬浮样式）。
  *
  * 视觉与位移都由 [FloatingBottomBar] 统一提供：胶囊底色、圆角、阴影、
@@ -413,58 +431,91 @@ fun BottomNavigation(
     navigationItems: ImmutableList<NavigationItem>,
     themeColors: ExtendedColors = ExtendedTheme.colors,
 ) {
+    val barStyle = rememberFloatingBarStyle()
+    val isNight = ExtendedTheme.colors.isNightMode
+    val selectedColor = MaterialTheme.colors.secondary
+    // 滑块（选中指示器）整条只有一个：它的横向位置随页签动画滑到对应单元，
+    // 所以切换页签看到的是「一块滑过去」，而不是两块各自换位。
+    val indicatorFill = floatingBarIndicatorColor(barStyle, selectedColor, isNight)
+    val indicatorStroke = floatingBarIndicatorBorderColor(barStyle, selectedColor, isNight)
     FloatingBottomBar(color = floatingBarColor(themeColors.bottomBar)) {
-        Row(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(FloatingItemHeight),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            navigationItems.fastForEachIndexed { index, navigationItem ->
-                FloatingNavigationItem(
-                    modifier = Modifier.weight(1f),
-                    label = navigationItem.title(index == currentPosition),
-                    selected = index == currentPosition,
-                    onClick = {
-                        if (index == currentPosition) {
-                            onReselected(index)
+            val itemCount = navigationItems.size.coerceAtLeast(1)
+            val cellWidth = maxWidth / itemCount
+            val indicatorOffset by animateDpAsState(
+                targetValue = cellWidth * currentPosition + (cellWidth - SelectedPillWidth) / 2,
+                animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+            )
+            // 滑块画在入口下面（先声明 = 先绘制），滑过时图标压在它上面。
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .offset(x = indicatorOffset)
+                    .size(SelectedPillWidth, SelectedPillHeight)
+                    .clip(SelectedPillShape)
+                    .background(indicatorFill)
+                    .then(
+                        if (indicatorStroke != null) {
+                            Modifier.border(1.dp, indicatorStroke, SelectedPillShape)
                         } else {
-                            onChangePosition(index)
+                            Modifier
                         }
-                        navigationItem.onClick?.invoke()
-                    },
-                    icon = {
-                        Box {
-                            Icon(
-                                painter = rememberAnimatedVectorPainter(
-                                    animatedImageVector = navigationItem.icon(),
-                                    atEnd = index == currentPosition
-                                ),
-                                contentDescription = navigationItem.title(index == currentPosition),
-                                modifier = Modifier.size(24.dp),
-                            )
-                            if (navigationItem.badge) {
-                                Text(
-                                    textAlign = TextAlign.Center,
-                                    fontSize = 10.sp,
-                                    color = White,
-                                    text = navigationItem.badgeText ?: "",
-                                    modifier = Modifier
-                                        .size(14.dp)
-                                        .clip(CircleShape)
-                                        .align(Alignment.TopEnd)
-                                        .background(
-                                            color = MaterialTheme.colors.secondary,
-                                            shape = CircleShape
-                                        ),
-                                )
+                    ),
+            )
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                navigationItems.fastForEachIndexed { index, navigationItem ->
+                    FloatingNavigationItem(
+                        modifier = Modifier.weight(1f),
+                        label = navigationItem.title(index == currentPosition),
+                        selected = index == currentPosition,
+                        onClick = {
+                            if (index == currentPosition) {
+                                onReselected(index)
+                            } else {
+                                onChangePosition(index)
                             }
-                        }
-                    },
-                    selectedContentColor = MaterialTheme.colors.secondary,
-                    unselectedContentColor = themeColors.unselected,
-                )
+                            navigationItem.onClick?.invoke()
+                        },
+                        icon = {
+                            Box {
+                                Icon(
+                                    painter = rememberAnimatedVectorPainter(
+                                        animatedImageVector = navigationItem.icon(),
+                                        atEnd = index == currentPosition
+                                    ),
+                                    contentDescription = navigationItem.title(index == currentPosition),
+                                    modifier = Modifier.size(24.dp),
+                                )
+                                if (navigationItem.badge) {
+                                    Text(
+                                        textAlign = TextAlign.Center,
+                                        fontSize = 10.sp,
+                                        color = White,
+                                        text = navigationItem.badgeText ?: "",
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clip(CircleShape)
+                                            .align(Alignment.TopEnd)
+                                            .background(
+                                                color = MaterialTheme.colors.secondary,
+                                                shape = CircleShape
+                                            ),
+                                    )
+                                }
+                            }
+                        },
+                        selectedContentColor = selectedColor,
+                        unselectedContentColor = themeColors.unselected,
+                    )
+                }
             }
         }
     }
@@ -473,8 +524,8 @@ fun BottomNavigation(
 /**
  * 胶囊内的单个入口：图标 + 选中态短标题。
  *
- * 标题只在选中态出现，不占固定标题行，胶囊因此能做得比标准底栏矮；
- * 未选中时只留图标，靠 [Role.Tab] + `selectable` 保证无障碍语义。
+ * 选中指示器（滑块）由 [BottomNavigation] 统一绘制，这里只负责图标与标题；
+ * 标题固定占 [FloatingLabelHeight] 槽位并用透明度淡入淡出，显隐因此不影响任何测量。
  */
 @Composable
 private fun FloatingNavigationItem(
@@ -489,6 +540,7 @@ private fun FloatingNavigationItem(
     val contentColor by animateColorAsState(
         targetValue = if (selected) selectedContentColor else unselectedContentColor
     )
+    val labelAlpha by animateFloatAsState(if (selected) 1f else 0f)
     Row(
         modifier = modifier
             .fillMaxHeight()
@@ -498,20 +550,24 @@ private fun FloatingNavigationItem(
                 role = Role.Tab,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-            )
-            .padding(horizontal = 8.dp),
+            ),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CompositionLocalProvider(LocalContentColor provides contentColor) {
-            icon()
-            AnimatedVisibility(visible = selected) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Spacer(modifier = Modifier.width(8.dp))
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CompositionLocalProvider(LocalContentColor provides contentColor) {
+                icon()
+                Box(
+                    modifier = Modifier.height(FloatingLabelHeight),
+                    contentAlignment = Alignment.Center,
+                ) {
                     Text(
                         text = label,
-                        style = MaterialTheme.typography.button,
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
                         maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.alpha(labelAlpha),
                     )
                 }
             }

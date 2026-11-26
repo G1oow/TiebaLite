@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FontDownload
 import androidx.compose.material.icons.outlined.FormatColorFill
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Upcoming
 import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material.icons.outlined.Visibility
@@ -338,6 +339,31 @@ fun CustomSettingsPage(
                         }
                     },
                     summary = stringResource(id = R.string.summary_hide_bars_on_scroll),
+                )
+            }
+
+            prefsItem {
+                // 悬浮底栏「层次感」来源：阴影描边 / 色调分层。键名必须与
+                // FloatingBarStylePrefKey（floating_bar_style）一致，切换后栏立即重组生效。
+                ListPref(
+                    key = "floating_bar_style",
+                    title = stringResource(id = R.string.title_floating_bar_style),
+                    summary = stringResource(id = R.string.summary_floating_bar_style),
+                    defaultValue = "shadow",
+                    useSelectedAsSummary = true,
+                    leadingIcon = {
+                        LeadingIcon {
+                            AvatarIcon(
+                                icon = Icons.Outlined.Layers,
+                                size = Sizes.Small,
+                                contentDescription = null,
+                            )
+                        }
+                    },
+                    entries = mapOf(
+                        "shadow" to stringResource(id = R.string.entry_floating_bar_style_shadow),
+                        "tonal" to stringResource(id = R.string.entry_floating_bar_style_tonal),
+                    ),
                 )
             }
             prefsItem {
