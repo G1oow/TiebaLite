@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -82,9 +83,13 @@ enum class FloatingBarStyle(val prefValue: String) {
 /** [FloatingBarStyle] 对应的 DataStore 键；设置页的 `ListPref` 必须用同一字符串。 */
 const val FloatingBarStylePrefKey = "floating_bar_style"
 
-/** 读当前样式。用 [rememberPreferenceAsState] 而不是缓存快照，切换后立刻重组生效。 */
+/** Activity 级共享的悬浮底栏样式（由 `BaseComposeActivity` 统一订阅 DataStore 后提供）。 */
+val LocalFloatingBarStyle = compositionLocalOf<FloatingBarStyle?> { null }
+
+/** 读当前样式：优先从 [LocalFloatingBarStyle] 读取，避免各处重复订阅 DataStore。 */
 @Composable
 fun rememberFloatingBarStyle(): FloatingBarStyle {
+    LocalFloatingBarStyle.current?.let { return it }
     val value by rememberPreferenceAsState(
         key = stringPreferencesKey(FloatingBarStylePrefKey),
         defaultValue = FloatingBarStyle.SHADOW.prefValue
@@ -186,13 +191,13 @@ fun FloatingBottomBar(
         floatingBarBorderColor(color, style, pureBlack)
     }
     val barsState = LocalBarsAutoHideState.current
-    val hiddenFraction = barsState?.hiddenFraction ?: 0f
     var heightPx by remember { mutableIntStateOf(0) }
     Column(
         modifier = modifier
             .fillMaxWidth()
             .onSizeChanged { heightPx = it.height }
-            .graphicsLayer { translationY = heightPx * hiddenFraction },
+            // 在绘制阶段读取 hiddenFraction，栏显隐动画期间不触发底栏子树逐帧重组。
+            .graphicsLayer { translationY = heightPx * (barsState?.hiddenFraction ?: 0f) },
     ) {
         Box(
             modifier = Modifier

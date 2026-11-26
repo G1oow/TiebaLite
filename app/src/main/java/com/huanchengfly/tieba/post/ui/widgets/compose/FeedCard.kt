@@ -273,32 +273,35 @@ fun ThreadContent(
     maxLines: Int = 5,
     highlightKeywords: ImmutableList<String> = persistentListOf(),
 ) {
-    val content = buildAnnotatedString {
-        if (showTitle) {
-            withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                if (isGood) {
-                    withStyle(style = SpanStyle(color = ExtendedTheme.colors.accent)) {
-                        append(stringResource(id = R.string.tip_good))
+    val accentColor = ExtendedTheme.colors.accent
+    val goodTip = if (showTitle && isGood) stringResource(id = R.string.tip_good) else ""
+    val content = remember(title, abstractText, tabName, showTitle, showAbstract, isGood, accentColor, goodTip) {
+        buildAnnotatedString {
+            if (showTitle) {
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                    if (isGood) {
+                        withStyle(style = SpanStyle(color = accentColor)) {
+                            append(goodTip)
+                        }
+                        append(" ")
                     }
-                    append(" ")
-                }
 
-                if (tabName.isNotBlank()) {
-                    append(tabName)
-                    append(" | ")
-                }
+                    if (tabName.isNotBlank()) {
+                        append(tabName)
+                        append(" | ")
+                    }
 
-                append(title)
+                    append(title)
+                }
+            }
+            if (showTitle && showAbstract) {
+                append('\n')
+            }
+            if (showAbstract) {
+                append(abstractText.emoticonString)
             }
         }
-        if (showTitle && showAbstract) {
-            append('\n')
-        }
-        if (showAbstract) {
-            append(abstractText.emoticonString)
-        }
     }
-
     HighlightText(
         text = content,
         modifier = Modifier

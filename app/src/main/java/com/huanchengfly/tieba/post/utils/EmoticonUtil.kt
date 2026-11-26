@@ -23,6 +23,7 @@ object EmoticonUtil {
 
     @RegExp
     private val REGEX = "#\\((([一-龥\\w~])+)\\)"
+    private val PATTERN_ALL: Pattern = Pattern.compile(REGEX)
     private val EMPTY_MAP: Map<String, Int> = emptyMap()
     private val EMOTICON_ALL_WEB_MAP: MutableMap<String, Int> = mutableMapOf()
     private val EMOTICON_CLASSIC_WEB_MAP: MutableMap<String, Int> = mutableMapOf()
@@ -119,8 +120,11 @@ object EmoticonUtil {
     @OptIn(ExperimentalTextApi::class)
     val String.emoticonString: AnnotatedString
         get() {
-            val regexPattern = Pattern.compile(getRegex(EMOTICON_ALL_TYPE))
-            val matcher = regexPattern.matcher(this)
+            // 快速路径：绝大多数标题/摘要不含 `#(` 表情标记，直接跳过正则匹配与 Span 构造。
+            if (!contains("#(")) {
+                return AnnotatedString(this)
+            }
+            val matcher = PATTERN_ALL.matcher(this)
             return buildAnnotatedString {
                 withAnnotation("Emoticon", "true") {
                     append(this@emoticonString)
@@ -144,11 +148,10 @@ object EmoticonUtil {
     @OptIn(ExperimentalTextApi::class)
     val AnnotatedString.emoticonString: AnnotatedString
         get() {
-            if (hasStringAnnotations("Emoticon", 0, length)) {
+            if (hasStringAnnotations("Emoticon", 0, length) || !text.contains("#(")) {
                 return this
             }
-            val regexPattern = Pattern.compile(getRegex(EMOTICON_ALL_TYPE))
-            val matcher = regexPattern.matcher(this.text)
+            val matcher = PATTERN_ALL.matcher(this.text)
             return buildAnnotatedString {
                 withAnnotation("Emoticon", "true") {
                     append(this@emoticonString)

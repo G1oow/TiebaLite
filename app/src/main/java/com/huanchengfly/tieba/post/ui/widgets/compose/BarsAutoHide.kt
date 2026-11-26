@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
@@ -154,10 +155,17 @@ fun rememberBarsAutoHideState(): BarsAutoHideState {
         key = booleanPreferencesKey("hide_bars_on_scroll"),
         defaultValue = true,
     )
-    return remember(scope, thresholdPx, enabled) {
-        BarsAutoHideState(scope = scope, hideThresholdPx = thresholdPx).apply {
-            this.enabled = enabled
+    // 不把 enabled 放进 remember key：否则切换开关会销毁重建 BarsAutoHideState，
+    // 丢失 pinCount 并引发整个 Activity CompositionLocal 子树重组。
+    val state = remember(scope, thresholdPx) {
+        BarsAutoHideState(scope = scope, hideThresholdPx = thresholdPx)
+    }
+    SideEffect {
+        state.enabled = enabled
+        if (!enabled) {
+            state.show()
         }
     }
+    return state
 }
 

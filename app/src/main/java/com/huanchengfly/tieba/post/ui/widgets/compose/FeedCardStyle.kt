@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -77,16 +78,25 @@ enum class FeedCardStyle(val prefValue: String) {
 /** [FeedCardStyle] 对应的 DataStore 键；设置页 `ListPref` 与 `AppPreferencesUtils` 须共用同一常量。 */
 const val FeedCardStylePrefKey = "feed_card_style"
 
-/** 读取当前帖子卡片样式，设置页切换后立即重组生效。 */
+/**
+ * 顶层共享的帖子卡片样式（由 `BaseComposeActivity` 统一订阅 DataStore 后提供）。
+ *
+ * 列表页每个 item 都会读卡片样式：若在 `FeedCard` / `FeedListDivider` 内部直接订阅 DataStore Flow，
+ * 滚动时每新进一个 item 都会新开协程监听，且首帧可能按默认值闪烁一次。通过 CompositionLocal 共享
+ * 让整个 Activity 只订阅一次 DataStore。
+ */
+val LocalFeedCardStyle = compositionLocalOf<FeedCardStyle?> { null }
+
+/** 读取当前帖子卡片样式，优先从 Activity 级 [LocalFeedCardStyle] O(1) 读取，预览/无宿主时兜底。 */
 @Composable
 fun rememberFeedCardStyle(): FeedCardStyle {
+    LocalFeedCardStyle.current?.let { return it }
     val value by rememberPreferenceAsState(
         key = stringPreferencesKey(FeedCardStylePrefKey),
         defaultValue = FeedCardStyle.TONAL_CAPSULE.prefValue,
     )
     return FeedCardStyle.of(value)
 }
-
 /**
  * 计算独立卡片容器底色（低对比柔和分层，兼容浅色 / 深邃灰 / 纯黑 AMOLED）。
  *
