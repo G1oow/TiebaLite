@@ -161,6 +161,8 @@ private fun ThreadList(
     onItemClicked: (ThreadInfo) -> Unit,
     onItemReplyClicked: (ThreadInfo) -> Unit,
     onAgree: (ThreadInfo) -> Unit,
+    header: (@Composable () -> Unit)? = null,
+    goodClassifyTabs: (@Composable () -> Unit)? = null,
     forumRuleTitle: String? = null,
     onOpenForumRule: (() -> Unit)? = null,
     onOriginThreadClicked: (OriginThreadInfo) -> Unit = {},
@@ -171,9 +173,17 @@ private fun ThreadList(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth(),
         contentPadding = WindowInsets.navigationBars.asPaddingValues(),
-        // 页头 + 页签已经把列表推下来了，列表自己再避让一次顶栏就会在页签下方留一大块空白。
-        avoidTopBar = false,
     ) {
+        if (header != null) {
+            item(key = "ForumHeader") {
+                header()
+            }
+        }
+        if (goodClassifyTabs != null) {
+            item(key = "GoodClassifyTabs") {
+                goodClassifyTabs()
+            }
+        }
         if (!forumRuleTitle.isNullOrEmpty()) {
             item(key = "ForumRule") {
                 TopThreadItem(
@@ -250,6 +260,7 @@ fun ForumThreadListPage(
     forumId: Long,
     forumName: String,
     isGood: Boolean = false,
+    header: (@Composable () -> Unit)? = null,
     viewModel: ForumThreadListViewModel = if (isGood) pageViewModel<GoodThreadListViewModel>() else pageViewModel<LatestThreadListViewModel>()
 ) {
     val context = LocalContext.current
@@ -331,72 +342,70 @@ fun ForumThreadListPage(
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        Column(
+        LoadMoreLayout(
+            isLoading = isLoadingMore,
+            onLoadMore = {
+                viewModel.send(
+                    getLoadMoreIntent(
+                        context,
+                        forumId,
+                        forumName,
+                        currentPage,
+                        threadListIds,
+                        isGood
+                    )
+                )
+            },
+            loadEnd = !hasMore,
+            lazyListState = lazyListState,
+            isEmpty = threadList.isEmpty(),
             modifier = Modifier.fillMaxSize()
         ) {
-            if (isGood) {
-                GoodClassifyTabs(
-                    goodClassifyHolders = goodClassifies,
-                    selectedItem = goodClassifyId,
-                    onSelected = {
-                        viewModel.send(
-                            getRefreshIntent(
-                                context,
-                                forumName,
-                                true,
-                                goodClassifyId = it
-                            )
+            ThreadList(
+                state = lazyListState,
+                items = threadList,
+                header = header,
+                goodClassifyTabs = if (isGood && goodClassifies.isNotEmpty()) {
+                    {
+                        GoodClassifyTabs(
+                            goodClassifyHolders = goodClassifies,
+                            selectedItem = goodClassifyId,
+                            onSelected = {
+                                viewModel.send(
+                                    getRefreshIntent(
+                                        context,
+                                        forumName,
+                                        true,
+                                        goodClassifyId = it
+                                    )
+                                )
+                            }
                         )
                     }
-                )
-            }
-
-            LoadMoreLayout(
-                isLoading = isLoadingMore,
-                onLoadMore = {
+                } else null,
+                onItemClicked = {
+                    navigator.navigate("thread/${it.threadId}")
+                },
+                onItemReplyClicked = {
+                    navigator.navigate("thread/${it.threadId}")
+                },
+                onAgree = {
                     viewModel.send(
-                        getLoadMoreIntent(
-                            context,
-                            forumId,
-                            forumName,
-                            currentPage,
-                            threadListIds,
-                            isGood
+                        ForumThreadListUiIntent.Agree(
+                            it.threadId,
+                            it.firstPostId,
+                            it.agree?.hasAgree ?: 0
                         )
                     )
                 },
-                loadEnd = !hasMore,
-                lazyListState = lazyListState,
-                isEmpty = threadList.isEmpty(),
-                modifier = Modifier.weight(1f)
-            ) {
-                ThreadList(
-                    state = lazyListState,
-                    items = threadList,
-                    onItemClicked = {
-                        navigator.navigate("thread/${it.threadId}")
-                    },
-                    onItemReplyClicked = {
-                        navigator.navigate("thread/${it.threadId}")
-                    },
-                    onAgree = {
-                        viewModel.send(
-                            ForumThreadListUiIntent.Agree(
-                                it.threadId,
-                                it.firstPostId,
-                                it.agree?.hasAgree ?: 0
-                            )
-                        )
-                    },
-                    forumRuleTitle = forumRuleTitle,
-                    onOpenForumRule = {
-                        navigator.navigate("forum_rule/$forumId")
-                    },
-                    onOriginThreadClicked = {
-                        navigator.navigate("thread/${it.tid.toLong()}")
-                    }
-                ) { navigator.navigate("user/${it.id}") }
-            }
+                forumRuleTitle = forumRuleTitle,
+                onOpenForumRule = {
+                    navigator.navigate("forum_rule/$forumId")
+                },
+                onOriginThreadClicked = {
+                    navigator.navigate("thread/${it.tid.toLong()}")
+                }
+            ) { navigator.navigate("user/${it.id}") }
         }
     }
 }
