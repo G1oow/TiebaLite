@@ -8,13 +8,16 @@ import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.safeGestures
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -48,7 +51,8 @@ fun bottomBarInsetsHeight(): Dp {
 }
 
 /**
- * 取顶部安全区高度：statusBars ∪ displayCutout，与顶栏内「状态栏底色带」用同一份 inset。
+ * 取顶部安全区高度：`safeDrawing` 的 Top（= statusBars ∪ captionBar ∪ displayCutout），
+ * 与 AGENTS.md §4-6 规定的顶栏 inset 同源。
  *
  * 栏是 overlay、正文铺满整屏（见 AGENTS.md §5.3），所以吸顶（`stickyHeader`）页签粘的是
  * 列表视口顶边 y=0——既不吃 `contentPadding` 的栏高占位，也不吃系统 inset。
@@ -56,10 +60,19 @@ fun bottomBarInsetsHeight(): Dp {
  */
 @Composable
 fun topBarInsetsHeight(): Dp {
-    // 并入 displayCutout：横屏 / 挖孔机型的状态栏高度可能小于刘海实际占位。
-    val insets = WindowInsets.statusBars.union(WindowInsets.displayCutout)
+    val insets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top)
     val density = LocalDensity.current
     return with(density) { insets.getTop(density).toDp() }
+}
+
+/**
+ * 顶部安全区避让的 Modifier 版：[topBarInsetsHeight] 的等值实现，同时把这段 inset 消费掉。
+ *
+ * 页面根部 / 侧栏头部这类「自己就是最顶层容器」的位置用它，取代裸的 `statusBarsPadding()`
+ * ——后者只算状态栏，刘海 / 挖孔高于状态栏时会压住内容（AGENTS.md §4-6）。
+ */
+fun Modifier.topBarInsetsPadding(): Modifier = composed {
+    windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
 }
 
 /**

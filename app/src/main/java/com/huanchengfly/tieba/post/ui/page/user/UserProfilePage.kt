@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.pager.PagerState
@@ -80,6 +81,7 @@ import com.huanchengfly.tieba.post.goToActivity
 import com.huanchengfly.tieba.post.models.database.Block
 import com.huanchengfly.tieba.post.toastShort
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
+import com.huanchengfly.tieba.post.ui.common.windowsizeclass.AdaptiveLayout
 import com.huanchengfly.tieba.post.ui.common.windowsizeclass.WindowWidthSizeClass
 import com.huanchengfly.tieba.post.ui.page.ProvideNavigator
 import com.huanchengfly.tieba.post.ui.page.user.edit.EditProfileActivity
@@ -581,10 +583,13 @@ private fun UserProfileContentExpanded(
                 modifier = Modifier.fillMaxSize()
             ) {
                 Row(
+                    // 宽屏收窄到绝对上限并居中（AGENTS.md §4-2）：原来按窗口 75% 取宽，
+                    // 平板 / 桌面窗口越宽行宽越失控。
                     modifier = Modifier
                         .padding(paddingValues)
                         .fillMaxHeight()
-                        .fillMaxWidth(0.75f)
+                        .widthIn(max = AdaptiveLayout.ContentMaxWidth)
+                        .fillMaxWidth()
                         .align(Alignment.TopCenter),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {

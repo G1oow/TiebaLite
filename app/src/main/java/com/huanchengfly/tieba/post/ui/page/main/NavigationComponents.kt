@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -72,6 +71,7 @@ import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.common.theme.compose.White
 import com.huanchengfly.tieba.post.ui.utils.MainNavigationContentPosition
 import com.huanchengfly.tieba.post.ui.utils.bottomBarInsetsHeight
+import com.huanchengfly.tieba.post.ui.utils.topBarInsetsPadding
 import com.huanchengfly.tieba.post.ui.widgets.compose.AccountNavIcon
 import com.huanchengfly.tieba.post.ui.widgets.compose.FloatingBottomBar
 import com.huanchengfly.tieba.post.ui.widgets.compose.floatingBarColor
@@ -173,7 +173,7 @@ fun NavigationDrawerContent(
             Column(
                 modifier = Modifier
                     .layoutId(LayoutType.HEADER)
-                    .statusBarsPadding(),
+                    .topBarInsetsPadding(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp) // NavigationRailVerticalPadding
             ) {
@@ -327,7 +327,7 @@ fun NavigationRail(
         contentColor = ExtendedTheme.colors.unselected,
         modifier = Modifier
             .fillMaxHeight()
-            .statusBarsPadding(),
+            .topBarInsetsPadding(),
         elevation = 0.dp,
         header = {
             AccountNavIcon(spacer = false)

@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imeAnimationTarget
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.size
@@ -102,6 +101,7 @@ import com.huanchengfly.tieba.post.ui.page.reply.ReplyPanelType.EMOJI
 import com.huanchengfly.tieba.post.ui.page.reply.ReplyPanelType.IMAGE
 import com.huanchengfly.tieba.post.ui.page.reply.ReplyPanelType.NONE
 import com.huanchengfly.tieba.post.ui.utils.imeNestedScroll
+import com.huanchengfly.tieba.post.ui.utils.topBarInsetsPadding
 import com.huanchengfly.tieba.post.ui.widgets.compose.BaseDialog
 import com.huanchengfly.tieba.post.ui.widgets.compose.Dialog
 import com.huanchengfly.tieba.post.ui.widgets.compose.DialogNegativeButton
@@ -436,12 +436,12 @@ internal fun ReplyPageContent(
     val parentModifier = if (curKeyboardType == NONE && !closingPanel) {
         Modifier
             .fillMaxWidth()
-            .statusBarsPadding()
+            .topBarInsetsPadding()
             .navigationBarsPadding()
     } else {
         Modifier
             .fillMaxWidth()
-            .statusBarsPadding()
+            .topBarInsetsPadding()
             .navigationBarsPadding()
             .consumeWindowInsets(WindowInsets.ime)
     }

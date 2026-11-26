@@ -56,6 +56,7 @@
 | [DBG-009](#dbg-009-日志页内容被悬浮顶栏盖住) | 2026-11-26 | 「关于 → 查看日志」有日志时最早几条被顶栏盖住 | 已修复（`64741ec6`） |
 | [DBG-010](#dbg-010-帖子详情主楼下方的分隔线按用户要求删除) | 2026-11-26 | 帖子页主楼底部那条线随滚动晃动，用户要求删除 | 已修复（`bc145e34`） |
 | [DBG-011](#dbg-011-帖子详情吸顶页签被展开的顶栏盖住) | 2026-11-26 | 帖子页回拉后顶栏出现，把吸顶的「回复 / 全部 / 只看楼主」整条盖住 | 已修复（`bc145e34`） |
+| [DBG-012](#dbg-012-顶部-inset-只取-statusbars两处按窗口百分比取宽) | 2026-11-26 | 5 处顶部避让只算 statusBars；个人主页 / 错误页按窗口百分比取宽 | 已修复 |
 
 ---
 
@@ -615,6 +616,72 @@
 - 用同一种吸顶写法（`padding(top = topBarInsetsHeight())`）的还有 `SubPostsPage`、`HistoryListPage`、`SearchForumPage`、`SearchUserPage`、`ForumSearchPostPage`。按代码推断它们在栏展开时同样会被盖住，但没有上机确认，本次也没有改。
 - 只在浅色主题、竖屏、Compact 宽度下测过；深色主题与宽屏 `Container` 收窄下没有上机。
 - 栏的 220ms 收起 / 展开动画过程中页签是否与栏严格同步，没有逐帧量（只量了停住后的位置）。
+
+---
+## DBG-012 顶部 inset 只取 statusBars、两处按窗口百分比取宽
+
+**状态**：已修复
+
+### 现象
+
+两处与 AGENTS.md 冲突的写法，都不是用户报上来的显性故障：
+
+1. 5 处页面根 / 侧栏头部用裸的 `statusBarsPadding()` 做顶部避让（AGENTS.md §4-6 要求 `safeDrawing.only(Top)`）。
+   刘海 / 挖孔高于状态栏的机型上，内容会被压住一截。
+2. 2 处按窗口百分比取宽：个人主页 Expanded 两列容器用 `fillMaxWidth(0.75f)`、错误页用 `0.9f / 0.5f`
+   （AGENTS.md §4-2 明确禁止）。窗口越宽行宽越失控。
+
+### 复现
+
+1. 需要刘海高于状态栏的机型才看得出差异——本机模拟器 `statusBars` 与 `displayCutout` 都是 118px，
+   所以**这一项在这台设备上观感不变**，改动属于对齐规范与防回归。
+2. 百分比宽度可复现：`adb shell wm size 2400x3000`（914dp 宽，Expanded）后进个人主页。
+
+### 定位
+
+1. `statusBarsPadding()` 只读 `WindowInsets.statusBars`；`WindowInsets.safeDrawing` 的 Top 另外并入了
+   `captionBar` 与 `displayCutout`，才是 §4-6 定义的顶栏 inset。
+2. 百分比写法的宽度随窗口线性增长：914dp 宽时 `0.75 × 914 ≈ 686dp` 且不封顶；
+   错误页 `0.5 × 914 ≈ 457dp`。
+
+### 根因
+
+历史实现各自就地取了 inset / 比例，没有走 `ui/utils/BottomBarInsets.kt` 与
+`ui/common/windowsizeclass/AdaptiveLayout.kt` 这两个唯一出口。
+
+### 修复
+
+| 文件 | 改动 |
+|---|---|
+| `ui/utils/BottomBarInsets.kt` | `topBarInsetsHeight()` 改读 `safeDrawing.only(WindowInsetsSides.Top)`；新增等值的 `Modifier.topBarInsetsPadding()`（同时消费该 inset） |
+| `ui/page/main/NavigationComponents.kt`（抽屉头部、NavigationRail）、`ui/page/main/user/UserPage.kt`、`ui/page/reply/ReplyPage.kt` | 5 处 `.statusBarsPadding()` → `.topBarInsetsPadding()` |
+| `ui/page/user/UserProfilePage.kt` | Expanded 两列容器 `.fillMaxWidth(0.75f)` → `.widthIn(max = AdaptiveLayout.ContentMaxWidth).fillMaxWidth()` |
+| `ui/widgets/compose/Errors.kt` | 非 Compact 由 `fillMaxWidth(0.5f)` 改为「水平 16dp 留白 + `widthIn(max = AdaptiveLayout.DialogMaxWidth)` + `fillMaxWidth()`」；Compact 保留原 90% 留边（屏宽有限，不会失控） |
+
+### 验证
+
+设备 `emulator-5554`，浅色。
+
+| 项 | 结果 |
+|---|---|
+| 构建 | `:app:compileDebugKotlin`、`:app:assembleDebug` → `BUILD SUCCESSFUL` |
+| Compact（1080×2400 / 420dpi） | 动态页签 `关注[303,302][378,354] 推荐[502,302][577,354] 热榜[701,302][776,354]`，与改动前逐字一致 |
+| Expanded（`wm size 2400x3000` = 914×1143dp） | 个人主页左列首元素 `[98,610][262,673]`，即内容从 x≈98 开始 = (2400 − 840dp×2.625)/2，说明收窄到 `ContentMaxWidth` 并居中；改动前的公式会从 x=300 开始（`0.75 × 2400 = 1800` 宽） |
+| 错误页（Expanded，深链无效吧名） | 「出错了」`[1137,1470][1263,1531]`，中心 x=1200 = 屏宽一半，居中正常；无崩溃 |
+| 崩溃 | 0 |
+
+### 涉及文件
+
+见上表 5 个文件。
+
+### 遗留
+
+- `Errors.kt` 的内容块宽度无法从语义树读出（内部元素都是 wrap content），只验证了居中与不崩溃；
+  容器宽度是否恰好等于 560dp 没有直接量到。
+- 刘海高于状态栏的机型没有实机可测，第 1 项改动在这一维度上属于「按规范改、未实测」。
+- `PbContentRender` / `FeedCard` / `Search` 里按窗口宽度分档的媒体比例（0.5 / 0.6 / 0.8）**没有改**：
+  那里表达的是「图片占卡片宽度的比例」，卡片本身已被 `Container` 收窄到 840dp，
+  不是规范禁止的「窗口百分比当宽度上限」。
 
 ---
 

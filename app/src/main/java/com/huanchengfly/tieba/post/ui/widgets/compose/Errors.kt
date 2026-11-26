@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidthIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.MaterialTheme
@@ -32,7 +33,8 @@ import com.huanchengfly.tieba.post.api.retrofit.exception.getErrorCode
 import com.huanchengfly.tieba.post.api.retrofit.exception.getErrorMessage
 import com.huanchengfly.tieba.post.arch.BaseComposeActivity.Companion.LocalWindowSizeClass
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
-import com.huanchengfly.tieba.post.ui.common.windowsizeclass.WindowWidthSizeClass
+import com.huanchengfly.tieba.post.ui.common.windowsizeclass.AdaptiveLayout
+import com.huanchengfly.tieba.post.ui.common.windowsizeclass.isCompactWidth
 import com.huanchengfly.tieba.post.ui.widgets.compose.states.StateScreenScope
 
 @Composable
@@ -46,15 +48,23 @@ fun TipScreen(
 ) {
     val scrollableModifier =
         if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier
-    val widthFraction =
-        if (LocalWindowSizeClass.current.widthSizeClass == WindowWidthSizeClass.Compact) 0.9f else 0.5f
+    val windowSizeClass = LocalWindowSizeClass.current
+    // 宽屏用绝对上限 + 水平留白（AGENTS.md §4-2）：原来按窗口 90% / 50% 取宽，
+    // 窗口越宽行宽越失控。紧凑屏宽度本就有限，保留原来的 90% 留边。
+    val contentWidthModifier = if (windowSizeClass.isCompactWidth) {
+        Modifier.fillMaxWidth(fraction = 0.9f)
+    } else {
+        Modifier
+            .padding(horizontal = 16.dp)
+            .widthIn(max = AdaptiveLayout.DialogMaxWidth)
+            .fillMaxWidth()
+    }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth(fraction = widthFraction)
+            modifier = contentWidthModifier
                 .padding(16.dp)
                 .then(scrollableModifier),
             horizontalAlignment = Alignment.CenterHorizontally,
