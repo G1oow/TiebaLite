@@ -7,9 +7,11 @@ import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ContentAlpha
@@ -41,10 +43,8 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
@@ -208,49 +208,31 @@ private val PagerTabIndicatorBottomGap = 8.dp
 /**
  * 跟随 [pagerState] 的短横条指示器（16dp × 3dp，贴在页签文字下方）。
  *
- * 位置在**布局的放置阶段**算：`currentPageOffsetFraction` 每帧都在变，放在组合里读会让指示器
- * 每帧重组；这里只触发重新放置。位移直接取 pager 的偏移，不再叠一层弹簧动画——那会让指示器
- * 滞后于手指。
+ * 水平位置**交给 M3 的 [TabIndicatorScope.tabIndicatorOffset]**，不再自己按 `TabPosition` 算：
+ * 可滚动页签栏（`SecondaryScrollableTabRow`）给指示器的容器只有「选中页签的内容区」那么大
+ * （实测 `constraints.maxWidth` = 内容宽 96px，而整行 180px），容器原点也在内容左边缘——
+ * 拿整行坐标去 `placeRelative` 会整体右移 `(tabWidth − contentWidth) / 2`。
+ * `matchContentSize = true` 拿到的正是内容区，在里面居中一条 16dp 短横条即可。
+ *
+ * 代价：跨页切换是 M3 自带的平滑过渡，不再逐帧跟随手指（M3 页签栏的标准行为）。
  */
 @Composable
 fun TabIndicatorScope.PagerTabIndicator(pagerState: PagerState) {
     Box(
-        Modifier
-            .tabIndicatorLayout { measurable, constraints, tabPositions ->
-                val placeable = measurable.measure(
-                    Constraints.fixed(
-                        PagerTabIndicatorWidth.roundToPx(),
-                        PagerTabIndicatorHeight.roundToPx()
-                    )
-                )
-                layout(constraints.maxWidth, constraints.maxHeight) {
-                    if (tabPositions.isEmpty()) return@layout
-                    val currentPage = minOf(tabPositions.lastIndex, pagerState.currentPage)
-                    val fraction = pagerState.currentPageOffsetFraction
-                    val current = tabPositions[currentPage]
-                    val currentLeft = current.left + (current.width - PagerTabIndicatorWidth) / 2
-                    val neighbour = when {
-                        fraction > 0 -> tabPositions.getOrNull(currentPage + 1)
-                        fraction < 0 -> tabPositions.getOrNull(currentPage - 1)
-                        else -> null
-                    }
-                    val left = if (neighbour != null) {
-                        val neighbourLeft =
-                            neighbour.left + (neighbour.width - PagerTabIndicatorWidth) / 2
-                        lerp(currentLeft, neighbourLeft, kotlin.math.abs(fraction))
-                    } else {
-                        currentLeft
-                    }
-                    placeable.placeRelative(
-                        x = left.roundToPx(),
-                        y = constraints.maxHeight - placeable.height -
-                                PagerTabIndicatorBottomGap.roundToPx()
-                    )
-                }
-            }
-            .clip(RoundedCornerShape(100))
-            .background(color = LocalContentColor.current)
-    )
+        modifier = Modifier
+            .tabIndicatorOffset(pagerState.currentPage, matchContentSize = true)
+            .fillMaxHeight(),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(bottom = PagerTabIndicatorBottomGap)
+                .width(PagerTabIndicatorWidth)
+                .height(PagerTabIndicatorHeight)
+                .clip(RoundedCornerShape(100))
+                .background(color = LocalContentColor.current)
+        )
+    }
 }
 
 @Composable

@@ -113,7 +113,7 @@ M2 存量热点（按文件数，`import` 计数）：
 
 `Tabs.kt` 从「照抄 M2 `TabRow` / `ScrollableTabRow` + 自定义 `TabPosition`」改为 M3 `SecondaryTabRow` /
 `SecondaryScrollableTabRow` 的薄封装；`Tab` 用 M3 版并保留未选中色算法；`PagerTabIndicator` 改成 M3 真正在用的
-`TabIndicatorScope` 扩展，位置挪到放置阶段计算。8 个 `indicator = { tabPositions -> … }` 调用点随之改成
+`TabIndicatorScope` 扩展，位置交给 `tabIndicatorOffset(matchContentSize = true)`。8 个 `indicator = { tabPositions -> … }` 调用点随之改成
 `indicator = { PagerTabIndicator(pagerState) }`，7 个页面的 `Tab` 改引项目封装。
 
 | 文件 | 变化 |
@@ -122,7 +122,7 @@ M2 存量热点（按文件数，`import` 计数）：
 | 同上 | **迁移期桥接**：M3 `Tab` 只按选中态插值 M3 的 `LocalContentColor`，页面传入的 M2 `Text` / `Icon` 读不到，故在 `Tab` 内容与页签槽里把颜色 / 透明度回写给 M2（做法同 `Toolbar.kt` 的 `ProvideTopBarTitleStyle`） |
 | 同上 | 未选中色仍取「选中色 × M2 `ContentAlpha.medium`」：该系数（浅色 0.60 / 深色 0.74）无 M3 对位物，随阶段 2e 一起处理 |
 | 同上 | `SecondaryScrollableTabRow` 显式 `minTabWidth = 0.dp`：M3 默认每签 ≥ 90dp，本工程是按文字宽度紧排 |
-| 同上 | 指示器位置改在 `tabIndicatorLayout` 的放置阶段算，不再「组合里读 `currentPageOffsetFraction` + `animateDpAsState` + `Modifier.offset`」，也不再叠一层会滞后于手指的弹簧动画 |
+| 同上 | 指示器位置交给 M3 的 `TabIndicatorScope.tabIndicatorOffset(currentPage, matchContentSize = true)`，内部居中一条 16dp 短横条；不再「组合里读 `currentPageOffsetFraction` + `animateDpAsState` + `Modifier.offset`」。**第一版按 `TabPosition` 的整行坐标自己算 x，在可滚动页签栏里整体右移 `(tabWidth − contentWidth)/2`（见 DBG-014），已改** |
 | 7 个页面 | `androidx.compose.material.Tab` → `com.huanchengfly.tieba.post.ui.widgets.compose.Tab`（Explore / Notifications / History / BlockList / Forum / Search / UserProfile） |
 
 门禁 2（观感不变）的证据：`emulator-5554`、竖屏 Compact，浅色与深色各跑一遍同一套脚本，覆盖 10 个页签视图
