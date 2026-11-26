@@ -94,102 +94,108 @@ fun AccountNavIcon(
 ) {
     val navigator = LocalNavigator.current
     val currentAccount = LocalAccount.current
-    if (spacer) Spacer(modifier = Modifier.width(12.dp))
-    if (currentAccount == null) {
-        Image(
-            painter = rememberDrawablePainter(
-                drawable = ContextCompat.getDrawable(
-                    LocalContext.current,
-                    R.drawable.ic_launcher_new_round
-                )
-            ),
-            contentDescription = stringResource(id = R.string.tip_login),
-            modifier = Modifier
-                .clip(CircleShape)
-                .size(size)
-                // 未登录时头像是唯一的登录入口：点它直接进登录页（此前是个纯 Image，点了没反应）。
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
-                    onClick?.invoke() ?: navigator.navigate(Routes.LOGIN)
-                }
-        )
-    } else {
-        val context = LocalContext.current
-        val menuState = rememberMenuState()
-        LongClickMenu(
-            menuContent = {
-                val allAccounts = AccountUtil.allAccounts
-                allAccounts.forEach {
+    // M3 TopAppBar 的 navigationIcon 槽是 Box（默认自带 4dp start padding），
+    // 同级放 Spacer(12.dp) 会与头像重叠失效；用容器 padding 补齐到 16dp，与正文左边界对齐，
+    // 同时在右侧留 8dp 避免头像紧贴标题文字。
+    Box(
+        modifier = if (spacer) Modifier.padding(start = 12.dp, end = 8.dp) else Modifier
+    ) {
+        if (currentAccount == null) {
+            Image(
+                painter = rememberDrawablePainter(
+                    drawable = ContextCompat.getDrawable(
+                        LocalContext.current,
+                        R.drawable.ic_launcher_new_round
+                    )
+                ),
+                contentDescription = stringResource(id = R.string.tip_login),
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .size(size)
+                    // 未登录时头像是唯一的登录入口：点它直接进登录页（此前是个纯 Image，点了没反应）。
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        onClick?.invoke() ?: navigator.navigate(Routes.LOGIN)
+                    }
+            )
+        } else {
+            val context = LocalContext.current
+            val menuState = rememberMenuState()
+            LongClickMenu(
+                menuContent = {
+                    val allAccounts = AccountUtil.allAccounts
+                    allAccounts.forEach {
+                        DropdownMenuItem(
+                            onClick = { AccountUtil.switchAccount(context, it.id) },
+                            contentPadding = TopBarMenuItemPadding,
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(CircleShape)
+                                            .size(Sizes.Small)
+                                    ) {
+                                        Avatar(
+                                            data = StringUtil.getAvatarUrl(it.portrait),
+                                            contentDescription = stringResource(id = R.string.title_switch_account_long_press),
+                                            size = Sizes.Small,
+                                        )
+                                        if (currentAccount.id == it.id) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.CheckCircle,
+                                                contentDescription = stringResource(id = R.string.desc_current_account),
+                                                tint = Color.White,
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .background(color = Color.Black.copy(0.35f))
+                                                    .padding(8.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Text(text = it.nameShow ?: it.name)
+                                }
+                            }
+                        )
+                    }
+                    VerticalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
                     DropdownMenuItem(
-                        onClick = { AccountUtil.switchAccount(context, it.id) },
+                        onClick = {
+                            navigator.navigate("login")
+                        },
                         contentPadding = TopBarMenuItemPadding,
                         text = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
+                                Icon(
+                                    imageVector = Icons.Rounded.Add,
+                                    contentDescription = stringResource(id = R.string.title_new_account),
+                                    tint = ExtendedTheme.colors.onChip,
                                     modifier = Modifier
-                                        .clip(CircleShape)
                                         .size(Sizes.Small)
-                                ) {
-                                    Avatar(
-                                        data = StringUtil.getAvatarUrl(it.portrait),
-                                        contentDescription = stringResource(id = R.string.title_switch_account_long_press),
-                                        size = Sizes.Small,
-                                    )
-                                    if (currentAccount.id == it.id) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.CheckCircle,
-                                            contentDescription = stringResource(id = R.string.desc_current_account),
-                                            tint = Color.White,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(color = Color.Black.copy(0.35f))
-                                                .padding(8.dp)
-                                        )
-                                    }
-                                }
+                                        .clip(CircleShape)
+                                        .background(color = ExtendedTheme.colors.chip)
+                                        .padding(8.dp),
+                                )
                                 Spacer(modifier = Modifier.width(16.dp))
-                                Text(text = it.nameShow ?: it.name)
+                                Text(text = stringResource(id = R.string.title_new_account))
                             }
                         }
                     )
-                }
-                VerticalDivider(
-                    modifier = Modifier.padding(vertical = 8.dp)
+                },
+                menuState = menuState,
+                onClick = onClick,
+                shape = CircleShape
+            ) {
+                Avatar(
+                    data = StringUtil.getAvatarUrl(currentAccount.portrait),
+                    size = size,
+                    contentDescription = stringResource(id = R.string.title_switch_account_long_press)
                 )
-                DropdownMenuItem(
-                    onClick = {
-                        navigator.navigate("login")
-                    },
-                    contentPadding = TopBarMenuItemPadding,
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.Add,
-                                contentDescription = stringResource(id = R.string.title_new_account),
-                                tint = ExtendedTheme.colors.onChip,
-                                modifier = Modifier
-                                    .size(Sizes.Small)
-                                    .clip(CircleShape)
-                                    .background(color = ExtendedTheme.colors.chip)
-                                    .padding(8.dp),
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text(text = stringResource(id = R.string.title_new_account))
-                        }
-                    }
-                )
-            },
-            menuState = menuState,
-            onClick = onClick,
-            shape = CircleShape
-        ) {
-            Avatar(
-                data = StringUtil.getAvatarUrl(currentAccount.portrait),
-                size = size,
-                contentDescription = stringResource(id = R.string.title_switch_account_long_press)
-            )
+            }
         }
     }
 }
