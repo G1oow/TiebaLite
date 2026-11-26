@@ -88,6 +88,7 @@ import com.huanchengfly.tieba.post.ui.page.user.edit.EditProfileActivity
 import com.huanchengfly.tieba.post.ui.page.user.likeforum.UserLikeForumPage
 import com.huanchengfly.tieba.post.ui.page.user.post.UserPostPage
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
+import com.huanchengfly.tieba.post.ui.widgets.compose.AvatarWithPreview
 import com.huanchengfly.tieba.post.ui.widgets.compose.BackNavigationIcon
 import com.huanchengfly.tieba.post.ui.widgets.compose.Button
 import com.huanchengfly.tieba.post.ui.widgets.compose.Chip
@@ -803,8 +804,10 @@ private fun UserProfileDetail(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Avatar(
-                data = StringUtil.getBigAvatarUrl(user.get { portrait }),
+            val portrait = user.get { portrait }
+            AvatarWithPreview(
+                data = StringUtil.getBigAvatarUrl(portrait),
+                previewData = StringUtil.getAvatarUrl(portrait),
                 size = 96.dp,
                 contentDescription = null,
                 modifier = Modifier.padding(bottom = 16.dp)

@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.flatMapConcat
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
@@ -43,9 +44,9 @@ class HotViewModel @Inject constructor() :
         override fun toPartialChangeFlow(intentFlow: Flow<HotUiIntent>): Flow<HotPartialChange> =
             merge(
                 intentFlow.filterIsInstance<HotUiIntent.Load>()
-                    .flatMapConcat { produceLoadPartialChange() },
+                    .flatMapLatest { produceLoadPartialChange() },
                 intentFlow.filterIsInstance<HotUiIntent.RefreshThreadList>()
-                    .flatMapConcat { it.producePartialChange() },
+                    .flatMapLatest { it.producePartialChange() },
                 intentFlow.filterIsInstance<HotUiIntent.Agree>()
                     .flatMapConcat { it.producePartialChange() },
             )

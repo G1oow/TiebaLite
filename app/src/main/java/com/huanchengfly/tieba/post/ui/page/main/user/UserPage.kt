@@ -189,6 +189,10 @@ private fun RowScope.StatCardItem(
     statText: String,
     onClick: (() -> Unit)? = null
 ) {
+    val context = LocalContext.current
+    val bebasFontFamily = remember(context) {
+        FontFamily(Typeface.createFromAsset(context.assets, "bebas.ttf"))
+    }
     Column(
         modifier = Modifier
             .weight(1f)
@@ -198,7 +202,7 @@ private fun RowScope.StatCardItem(
         Text(
             text = "$statNum",
             fontSize = 20.sp,
-            fontFamily = FontFamily(Typeface.createFromAsset(LocalContext.current.assets, "bebas.ttf")),
+            fontFamily = bebasFontFamily,
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(

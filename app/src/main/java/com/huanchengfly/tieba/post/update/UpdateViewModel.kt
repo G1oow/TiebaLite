@@ -36,6 +36,9 @@ class UpdateViewModel @Inject constructor(
         manager.ignore(available.release.tagName, available.force)
     }
 
+    /** 仅本会话收起启动更新弹窗，不写入永久忽略。 */
+    fun dismissStartupAvailableForSession() = manager.dismissStartupAvailableForSession()
+
     fun download() = manager.download()
 
     fun install() = manager.install()

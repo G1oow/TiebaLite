@@ -61,7 +61,9 @@ fun TipScreen(
     }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(modifier)
     ) {
         Column(
             modifier = contentWidthModifier
@@ -70,7 +72,10 @@ fun TipScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp, alignment = Alignment.CenterVertically)
         ) {
-            Column(modifier = Modifier.requiredWidthIn(max = 400.dp)) {
+            Column(
+                modifier = Modifier.requiredWidthIn(max = 400.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 image()
             }
             ProvideTextStyle(

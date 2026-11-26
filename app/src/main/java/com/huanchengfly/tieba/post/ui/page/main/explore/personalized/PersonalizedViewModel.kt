@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapConcat
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
@@ -64,7 +65,7 @@ class PersonalizedViewModel @Inject constructor() :
         @OptIn(ExperimentalCoroutinesApi::class)
         override fun toPartialChangeFlow(intentFlow: Flow<PersonalizedUiIntent>): Flow<PersonalizedPartialChange> =
             merge(
-                intentFlow.filterIsInstance<PersonalizedUiIntent.Refresh>().flatMapConcat { produceRefreshPartialChange() },
+                intentFlow.filterIsInstance<PersonalizedUiIntent.Refresh>().flatMapLatest { produceRefreshPartialChange() },
                 intentFlow.filterIsInstance<PersonalizedUiIntent.LoadMore>().flatMapConcat { it.producePartialChange() },
                 intentFlow.filterIsInstance<PersonalizedUiIntent.Dislike>().flatMapConcat { it.producePartialChange() },
                 intentFlow.filterIsInstance<PersonalizedUiIntent.Agree>().flatMapConcat { it.producePartialChange() },
@@ -89,13 +90,15 @@ class PersonalizedViewModel @Inject constructor() :
                         .let {
                             if (App.INSTANCE.appPreferences.personalizedFollowedOnly) filterFollowedOnly(it) else it
                         }
-                    val threadPersonalizedData = response.data_?.thread_personalized ?: emptyList()
+                    val personalizedMap = response.data_?.thread_personalized
+                        ?.associateBy { it.tid }
+                        ?: emptyMap()
                     PersonalizedPartialChange.Refresh.Success(
                         data = data.map { thread ->
-                            val threadPersonalized =
-                                threadPersonalizedData.firstOrNull { it.tid == thread.get { id } }
-                                    ?.wrapImmutable()
-                            ThreadItemData(thread = thread, personalized = threadPersonalized)
+                            ThreadItemData(
+                                thread = thread,
+                                personalized = personalizedMap[thread.get { id }]?.wrapImmutable()
+                            )
                         }.toImmutableList(),
                     )
                 }
@@ -114,14 +117,16 @@ class PersonalizedViewModel @Inject constructor() :
                         .let {
                             if (App.INSTANCE.appPreferences.personalizedFollowedOnly) filterFollowedOnly(it) else it
                         }
-                    val threadPersonalizedData = response.data_?.thread_personalized ?: emptyList()
+                    val personalizedMap = response.data_?.thread_personalized
+                        ?.associateBy { it.tid }
+                        ?: emptyMap()
                     PersonalizedPartialChange.LoadMore.Success(
                         currentPage = page,
                         data = data.map { thread ->
-                            val threadPersonalized =
-                                threadPersonalizedData.firstOrNull { it.tid == thread.get { id } }
-                                    ?.wrapImmutable()
-                            ThreadItemData(thread = thread, personalized = threadPersonalized)
+                            ThreadItemData(
+                                thread = thread,
+                                personalized = personalizedMap[thread.get { id }]?.wrapImmutable()
+                            )
                         }.toImmutableList(),
                     )
                 }

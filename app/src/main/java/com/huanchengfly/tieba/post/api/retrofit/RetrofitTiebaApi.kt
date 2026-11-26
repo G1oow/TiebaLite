@@ -37,6 +37,7 @@ import com.huanchengfly.tieba.post.utils.ClientUtils
 import com.huanchengfly.tieba.post.utils.CuidUtils
 import com.huanchengfly.tieba.post.utils.DeviceUtils
 import com.huanchengfly.tieba.post.utils.MobileInfoUtil
+import com.huanchengfly.tieba.post.utils.NetworkConfig
 import com.huanchengfly.tieba.post.utils.UIDUtil
 import kotlinx.serialization.json.Json
 import okhttp3.ConnectionPool
@@ -52,15 +53,14 @@ import kotlin.math.roundToInt
 
 
 object RetrofitTiebaApi {
-    private const val READ_TIMEOUT = 60L
-    private const val CONNECT_TIMEOUT = 60L
-    private const val WRITE_TIMEOUT = 60L
+    private const val READ_TIMEOUT = 15L
+    private const val CONNECT_TIMEOUT = 15L
+    private const val WRITE_TIMEOUT = 15L
 
     private val initTime = System.currentTimeMillis()
     internal val randomClientId = "wappc_${initTime}_${(Math.random() * 1000).roundToInt()}"
     private val stParamInterceptor = StParamInterceptor()
-    private val connectionPool = ConnectionPool(32, 5, TimeUnit.MINUTES)
-
+    private val connectionPool = NetworkConfig.apiConnectionPool
     private val defaultCommonParamInterceptor = CommonParamInterceptor(
         Param.BDUSS to { AccountUtil.getBduss() },
         Param.CLIENT_ID to { ClientUtils.clientId },
@@ -353,8 +353,10 @@ object RetrofitTiebaApi {
             .addConverterFactory(json.asConverterFactory())
             .addConverterFactory(gsonConverterFactory)
             .client(OkHttpClient.Builder().apply {
-//                addInterceptor()
+                dispatcher(NetworkConfig.apiDispatcher)
                 connectionPool(connectionPool)
+                retryOnConnectionFailure(true)
+                addInterceptor(NetworkConfig.dynamicTimeoutInterceptor)
             }.build())
             .build()
             .create(SofireApi::class.java)
@@ -371,9 +373,12 @@ object RetrofitTiebaApi {
         .addConverterFactory(json.asConverterFactory())
         .addConverterFactory(gsonConverterFactory)
         .client(OkHttpClient.Builder().apply {
+            dispatcher(NetworkConfig.apiDispatcher)
+            retryOnConnectionFailure(true)
             readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
             connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
             writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
+            addInterceptor(NetworkConfig.dynamicTimeoutInterceptor)
             interceptors.forEach {
                 addInterceptor(it)
             }
@@ -397,9 +402,12 @@ object RetrofitTiebaApi {
         .addConverterFactory(NullOnEmptyConverterFactory())
         .addConverterFactory(WireConverterFactory.create())
         .client(OkHttpClient.Builder().apply {
+            dispatcher(NetworkConfig.apiDispatcher)
+            retryOnConnectionFailure(true)
             readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
             connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
             writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
+            addInterceptor(NetworkConfig.dynamicTimeoutInterceptor)
             interceptors.forEach {
                 addInterceptor(it)
             }

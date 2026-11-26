@@ -198,6 +198,16 @@ class UpdateManager @Inject constructor(
     }
 
     /**
+     * 仅在当前进程会话内收起启动更新弹窗，不写 DataStore 忽略标记：
+     * 防止点外部/返回关掉弹窗后因屏幕旋转等配置变更再次弹出，同时冷启动仍会提示。
+     */
+    fun dismissStartupAvailableForSession() {
+        val current = _state.value as? UpdateUiState.Available ?: return
+        if (current.force || current.source != UpdateSource.STARTUP) return
+        _state.value = UpdateUiState.Idle
+    }
+
+    /**
      * 下载当前可用版本的 APK 到 cacheDir/update/，完成后校验 SHA256。
      * 下载阶段沿用 [UpdateUiState.Available.source]，保证启动弹窗与 About 卡片按来源分轨。
      */

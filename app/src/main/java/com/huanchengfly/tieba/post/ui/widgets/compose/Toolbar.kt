@@ -416,8 +416,6 @@ fun TopAppBarContainer(
     content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     val barsState = LocalBarsAutoHideState.current
-    val hiddenFraction = barsState?.hiddenFraction ?: 0f
-
     // 状态栏底色带与吸顶页签避让共用同一份 inset（见 [topBarInsetsHeight]），避免两处各算一遍。
     val statusBarInset = if (insets) topBarInsetsHeight() else 0.dp
     val coroutineScope = rememberCoroutineScope()
@@ -435,9 +433,9 @@ fun TopAppBarContainer(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .graphicsLayer { translationY = -barHeightPx * hiddenFraction },
+                // 在绘制阶段读取 hiddenFraction，栏显隐动画期间不触发顶栏与页签逐帧重组。
+                .graphicsLayer { translationY = -barHeightPx * (barsState?.hiddenFraction ?: 0f) },
         ) {
-            // 状态栏底色带：与栏体同色，跟着整条栏一起滑出。
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

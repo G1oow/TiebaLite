@@ -59,21 +59,18 @@ object PbPageRepository {
                 ) {
                     throw TiebaUnknownException
                 }
-                val userList = response.data_.user_list
+                val userMap = response.data_.user_list.associateBy { it.id }
                 val postList = response.data_.post_list.map {
-                    val author = it.author
-                        ?: userList.first { user -> user.id == it.author_id }
+                    val author = it.author ?: userMap[it.author_id]
                     it.copy(
-                        author_id = author.id,
-                        author = it.author
-                            ?: userList.first { user -> user.id == it.author_id },
+                        author_id = author?.id ?: it.author_id,
+                        author = author,
                         from_forum = response.data_.forum,
                         tid = response.data_.thread.id,
                         sub_post_list = it.sub_post_list?.copy(
                             sub_post_list = it.sub_post_list.sub_post_list.map { subPost ->
                                 subPost.copy(
-                                    author = subPost.author
-                                        ?: userList.first { user -> user.id == subPost.author_id }
+                                    author = subPost.author ?: userMap[subPost.author_id]
                                 )
                             }
                         ),
@@ -91,13 +88,11 @@ object PbPageRepository {
                         sub_post_list = response.data_.first_floor_post.sub_post_list?.copy(
                             sub_post_list = response.data_.first_floor_post.sub_post_list.sub_post_list.map { subPost ->
                                 subPost.copy(
-                                    author = subPost.author
-                                        ?: userList.first { user -> user.id == subPost.author_id }
+                                    author = subPost.author ?: userMap[subPost.author_id]
                                 )
                             }
                         )
                     )
-
                 response.copy(
                     data_ = response.data_.copy(
                         post_list = postList,

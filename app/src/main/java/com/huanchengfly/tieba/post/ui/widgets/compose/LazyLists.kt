@@ -104,7 +104,8 @@ fun MyLazyColumn(
     userScrollEnabled: Boolean = true,
     content: LazyListScope.() -> Unit,
 ) {
-    onGlobalEvent<GlobalEvent.ScrollToTop> {
+    val shouldLoad = LocalShouldLoad.current
+    onGlobalEvent<GlobalEvent.ScrollToTop>(filter = { shouldLoad }) {
         state.animateScrollToItem(0)
     }
 
@@ -139,7 +140,8 @@ fun MyLazyVerticalGrid(
     userScrollEnabled: Boolean = true,
     content: LazyGridScope.() -> Unit,
 ) {
-    onGlobalEvent<GlobalEvent.ScrollToTop> {
+    val shouldLoad = LocalShouldLoad.current
+    onGlobalEvent<GlobalEvent.ScrollToTop>(filter = { shouldLoad }) {
         state.animateScrollToItem(0)
     }
 

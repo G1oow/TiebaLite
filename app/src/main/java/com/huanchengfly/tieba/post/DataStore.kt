@@ -9,6 +9,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.datastore.core.DataMigration
 import androidx.datastore.core.DataStore
@@ -23,7 +24,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-
 object DataStoreConst {
     const val DATA_STORE_NAME = "app_preferences"
 }
@@ -60,18 +60,30 @@ fun <T> rememberPreferenceAsMutableState(
     defaultValue: T
 ): MutableState<T> {
     val dataStore = LocalContext.current.dataStore
-    val state = remember { mutableStateOf(defaultValue) }
+    val coroutineScope = rememberCoroutineScope()
+    val state = remember(key) { mutableStateOf(defaultValue) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(dataStore, key) {
         dataStore.data.map { it[key] ?: defaultValue }.distinctUntilChanged()
             .collect { state.value = it }
     }
 
-    LaunchedEffect(state.value) {
-        dataStore.edit { it[key] = state.value }
-    }
+    // 仅在调用方主动写 state.value 时落盘，避免首帧把 defaultValue 写进 DataStore 覆盖已有配置。
+    return remember(dataStore, key, state) {
+        object : MutableState<T> {
+            override var value: T
+                get() = state.value
+                set(newValue) {
+                    state.value = newValue
+                    coroutineScope.launch(Dispatchers.IO) {
+                        dataStore.edit { it[key] = newValue }
+                    }
+                }
 
-    return state
+            override fun component1(): T = value
+            override fun component2(): (T) -> Unit = { value = it }
+        }
+    }
 }
 
 @Composable
@@ -80,15 +92,13 @@ fun <T> rememberPreferenceAsState(
     defaultValue: T
 ): State<T> {
     val dataStore = LocalContext.current.dataStore
-    val state = remember { mutableStateOf(defaultValue) }
+    val state = remember(key) { mutableStateOf(defaultValue) }
 
-    LaunchedEffect(Unit) {
+    // 只读偏好状态：绝不反向写盘。原先这里多了一条 LaunchedEffect(state.value) { dataStore.edit ... }，
+    // 每次组件进入组合（包括列表滑动新建卡片）都会拿 defaultValue 触发一次磁盘写入并引发全局 Flow 重组。
+    LaunchedEffect(dataStore, key) {
         dataStore.data.map { it[key] ?: defaultValue }.distinctUntilChanged()
             .collect { state.value = it }
-    }
-
-    LaunchedEffect(state.value) {
-        dataStore.edit { it[key] = state.value }
     }
 
     return state

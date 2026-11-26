@@ -37,6 +37,7 @@ import com.huanchengfly.tieba.post.utils.AppIconUtil
 import com.huanchengfly.tieba.post.utils.BlockManager
 import com.huanchengfly.tieba.post.utils.ClientUtils
 import com.huanchengfly.tieba.post.utils.EmoticonManager
+import com.huanchengfly.tieba.post.utils.NetworkConfig
 import com.huanchengfly.tieba.post.utils.SharedPreferencesUtil
 import com.huanchengfly.tieba.post.utils.ThemeUtil
 import com.huanchengfly.tieba.post.utils.Util
@@ -95,6 +96,7 @@ class App : Application(), SketchFactory {
         }
         LitePal.initialize(this)
         AccountUtil.init(this)
+        NetworkConfig.init(this)
         Config.init(this)
         val isSelfBuild = applicationMetaData.getBoolean("is_self_build")
         if (!isSelfBuild) {
@@ -792,9 +794,7 @@ class App : Application(), SketchFactory {
     }
 
     override fun createSketch(): Sketch = Sketch.Builder(this).apply {
-        httpStack(OkHttpStack.Builder().apply {
-            userAgent(System.getProperty("http.agent"))
-        }.build())
+        httpStack(OkHttpStack(NetworkConfig.createImageOkHttpClient(System.getProperty("http.agent"))))
         components {
             addDrawableDecodeInterceptor(PauseLoadWhenScrollingDrawableDecodeInterceptor())
             addDrawableDecoder(

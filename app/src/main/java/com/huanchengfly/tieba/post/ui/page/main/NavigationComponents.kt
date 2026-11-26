@@ -455,7 +455,8 @@ fun BottomNavigation(
             val itemCount = navigationItems.size.coerceAtLeast(1)
             val cellWidthPx = with(density) { (maxWidth / itemCount).toPx() }
             val pillWidthPx = with(density) { SelectedPillWidth.toPx() }
-            val indicatorOffsetPx by animateFloatAsState(
+            // 保留 State 引用并在 graphicsLayer 绘制阶段读值，避免滑块动画 360ms 内每帧重组整个底栏。
+            val indicatorOffsetPx = animateFloatAsState(
                 targetValue = cellWidthPx * currentPosition + (cellWidthPx - pillWidthPx) / 2f,
                 animationSpec = tween(
                     durationMillis = BottomBarSliderDurationMs,
@@ -467,7 +468,7 @@ fun BottomNavigation(
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .graphicsLayer { translationX = indicatorOffsetPx }
+                    .graphicsLayer { translationX = indicatorOffsetPx.value }
                     .size(SelectedPillWidth, SelectedPillHeight)
                     .clip(SelectedPillShape)
                     .background(indicatorFill)
@@ -555,7 +556,7 @@ private fun FloatingNavigationItem(
         animationSpec = tween(durationMillis = 220, easing = BottomBarSliderEasing),
         label = "BottomBarItemColor",
     )
-    val labelAlpha by animateFloatAsState(
+    val labelAlpha = animateFloatAsState(
         targetValue = if (selected) 1f else 0f,
         animationSpec = tween(durationMillis = 220, easing = BottomBarSliderEasing),
         label = "BottomBarLabelAlpha",
@@ -586,7 +587,7 @@ private fun FloatingNavigationItem(
                         lineHeight = 12.sp,
                         maxLines = 1,
                         softWrap = false,
-                        modifier = Modifier.alpha(labelAlpha),
+                        modifier = Modifier.graphicsLayer { alpha = labelAlpha.value },
                     )
                 }
             }

@@ -105,8 +105,10 @@ fun LazyLoadHorizontalPager(
         key = key,
         pageNestedScrollConnection = pageNestedScrollConnection
     ) {
+        // 用 settledPage 而不是 currentPage：跨 Tab 动画切页途经中间页时，
+        // 不在滚动中途拉起中间页的 LazyLoad（网络请求与整页首帧初始化），避免切页掉帧。
         ProvideShouldLoad(
-            shouldLoad = it == state.currentPage
+            shouldLoad = it == state.settledPage
         ) {
             pageContent(it)
         }

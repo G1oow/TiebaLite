@@ -68,9 +68,9 @@ private fun UpdateAvailableDialog(
         // 强更时点外部也不能关：之前只设了 cancelable（返回键），点外部仍会关掉弹窗，
         // 等于强更可以被一次误触点绕过去。
         cancelableOnTouchOutside = !force,
-        // 关掉弹窗只表示「这次先不看」，不写「本次忽略」：否则启动时误触外部/返回就把该版本
-        // 永久静音了，用户之后再也看不到提示（DBG-016）。真正的忽略只走下面的按钮。
-        onDismiss = null,
+        // 关掉弹窗只在本会话收起状态，不写「本次忽略」：既避免启动时误触把该版本永久静音
+        // （DBG-016），也避免状态停留在 Available 导致旋转屏幕时重复弹出。
+        onDismiss = if (force) null else { { viewModel.dismissStartupAvailableForSession() } },
         title = {
             Text(
                 text = stringResource(id = R.string.title_update_available),

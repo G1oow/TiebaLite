@@ -62,6 +62,11 @@
 | [DBG-018](#dbg-018-吧内页滑动时列表被顶栏动画附加下滑加速度并截断底部) | 2026-11-26 | 吧内页滑动存在下滑加速度，且顶栏收起后列表底部被截断 147px | 已修复（`758dc764`） |
 | [DBG-019](#dbg-019-首页动态消息标题左侧头像未与正文左侧对齐) | 2026-11-26 | 「首页」等主界面顶栏头像左沿停在 4dp，未与页面 16dp 左边界对齐 | 已修复（`5409199b`） |
 | [DBG-020](#dbg-020-切页视差动画导致透明背景页透出前一页内容) | 2026-11-26 | 路由切换时新旧两页短暂重叠，画面透出前一页内容 | 已修复（`36c29960`） |
+| [DBG-021](#dbg-021-消息页空态箱子图标与文字左偏错位) | 2026-11-26 | 「消息」页空态箱子图标与「这里什么都没有」整体左偏约 55px 未居中 | 已修复（`810bdff8`） |
+| [DBG-022](#dbg-022-切换页面与列表滑动偶发掉帧) | 2026-11-26 | 切 Tab 与滑动信息流偶发掉帧，且旧版高刷逻辑未提交生效 | 已修复（`5a793138`） |
+| [DBG-023](#dbg-023-退出帖子返回列表页后自动回到顶端) | 2026-11-26 | 从帖子返回吧内页/列表页时，列表直接弹回最顶端丢失阅读位置 | 已修复（`810bdff8`） |
+| [DBG-024](#dbg-024-个人主页头像显示慢及帖子刷新与图片加载慢) | 2026-11-26 | 个人主页大头像先显灰圈等待；多图与帖子刷新慢 | 已修复（`18f61267`） |
+| [DBG-025](#dbg-025-0-关注时关注页正文全空无任何提示) | 2026-11-26 | 用户 0 关注时进入「动态 → 关注」，正文区完全空白 | 已修复（`18f61267`） |
 
 ---
 
@@ -1141,6 +1146,271 @@ B 组说明网络、版本比对、弹窗渲染都没问题，问题出在「什
 ### 涉及文件
 
 `MainActivityV2.kt`。
+
+### 遗留
+
+无。
+
+---
+
+## DBG-021 消息页空态箱子图标与文字左偏错位
+
+**状态**：已修复（`810bdff8`）
+
+### 现象
+
+进入「消息」页空列表时，Lottie 空箱子动画与下方「这里什么都没有」文字整体偏左，未对齐屏幕中线。
+
+### 复现
+
+在 `emulator-5554`（1080×2400 @420dpi，中线 x=540px）进入「消息 → 回复我的」空态，抓 `uiautomator dump` 与 `screencap` 计算非纯黑像素包围盒。
+
+### 定位
+
+- `NotificationsListPage.kt:99` 将 `TipScreen(...)` 放进 `MyLazyColumn`（默认 `horizontalAlignment = Alignment.Start`）的 `item` 中且未传 `fillMaxWidth()`。
+- `Errors.kt:62` 中 `TipScreen` 外层 `Column` 仅接收调用方传入的 `modifier`（默认 `Modifier`），未自带 `.fillMaxWidth()`；而内层 `Column` 使用 `Modifier.fillMaxWidth(0.9f)`（972px）。
+
+### 根因
+
+`TipScreen` 外层 `Column` 在左对齐的父容器内被子项收缩到 `0.9 × 1080 = 972px` 并贴左（`x = 0..972`），其中心落在 `486px`，相对 `540px` 屏幕中线整体左偏 `54px`。
+
+### 修复
+
+- `Errors.kt`：`TipScreen` 外层 `Column` 增加 `.fillMaxWidth().then(modifier)`，同时给图片容器 `Column` 补 `horizontalAlignment = Alignment.CenterHorizontally`。
+
+### 验证
+
+设备 `emulator-5554`（1080×2400）：
+- 修复前：箱子 bbox `(328, 530, 642, 862)` 中心 `485.0px`；文字「这里什么都没有」bounds `[302,969][670,1044]`、像素中心 `485.0px`。
+- 修复后：箱子 bbox `(382, 502, 696, 862)` 中心 **`539.0px`**；文字 bounds **`[356,969][724,1044]`**（中点 `540.0px`）、像素中心 **`539.0px`**。
+
+### 涉及文件
+
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/widgets/compose/Errors.kt`
+
+### 遗留
+
+无。
+
+---
+
+## DBG-022 切换页面与列表滑动偶发掉帧
+
+**状态**：已修复（`5a793138`）
+
+### 现象
+
+主界面切换 Tab 与滑动动态信息流时偶发明显掉帧，切页卡顿尤甚。
+
+### 复现
+
+在 `emulator-5554` 执行 5 次动态信息流快速上滑与 6 次主界面 4-Tab 切换，通过 `adb shell dumpsys gfxinfo com.huanchengfly.tieba.post` 采集帧耗时。
+
+### 定位
+
+1. `DataStore.kt:78`：`rememberPreferenceAsState` 含多余的 `LaunchedEffect(state.value) { dataStore.edit { it[key] = state.value } }`，在只读偏好组件首次组合时拿 `defaultValue` 写盘；而 `FeedCard` 与 `FeedListDivider` 在每个列表 item 内部直接调用 `rememberFeedCardStyle()`，列表每滑出一个新卡片就并发写 DataStore 并广播全局 Flow 重组。
+2. `Toolbar.kt:419` / `FloatingBars.kt:189` / `NavigationComponents.kt:458,558`：在组合阶段直接解包 `barsState?.hiddenFraction`、`indicatorOffsetPx`、`labelAlpha`，导致动画期间每帧整棵顶栏/底栏子树重组。
+3. `LazyLoad.kt:109`：`ProvideShouldLoad(shouldLoad = it == state.currentPage)` 在跨 Tab 动画切页途经中间页时中途拉起中间页的 `LazyLoad`。
+4. `EmoticonUtil.kt:122` 与 `FeedCard.kt:276`：`emoticonString` 每次调用在主线程重新 `Pattern.compile` 且 `ThreadContent` 未 `remember`。
+5. `Images.kt:243,324`：`NetworkImage` 每张可见图滚动每帧在 `onGloballyPositioned` 写 `mutableStateOf(Offset.Zero)`；`Avatars.kt` 未 `remember` `DisplayRequest`；`UserPage.kt` / `ForumPage.kt` 每次重组从 `assets` 读 `bebas.ttf`。
+6. `MainActivityV2.kt:382`：原刷新率代码仅改 `window.attributes.preferredDisplayModeId` 未赋值回 `window.attributes`，实际未向 `WindowManager` 提交。
+
+### 根因
+
+列表与切页热路径叠加了「只读偏好反向写盘广播重组」「动画值在组合期读取」「每帧图片坐标写 Compose State」「跨页途经触发懒加载」「主线程反复编译正则/加载字体」以及「窗口刷新率未提交」多重阻塞。
+
+### 修复
+
+- `DataStore.kt`：移除 `rememberPreferenceAsState` 的写盘 `LaunchedEffect`；修复 `rememberPreferenceAsMutableState` 仅在调用方主动赋值时写盘。
+- `BaseComposeActivity.kt` / `FeedCardStyle.kt` / `FloatingBars.kt`：引入 Activity 级 `LocalFeedCardStyle` 与 `LocalFloatingBarStyle`，列表项 O(1) 读取零订阅。
+- `Toolbar.kt` / `FloatingBars.kt` / `NavigationComponents.kt`：将 `hiddenFraction` / `indicatorOffsetPx` / `labelAlpha` 推迟至 `graphicsLayer` 绘制层读取；`BarsAutoHide.kt` 不再将 `enabled` 作为重建 state 的 key。
+- `LazyLoad.kt`：`ProvideShouldLoad` 改用 `it == state.settledPage`。
+- `EmoticonUtil.kt` / `FeedCard.kt`：预编译 `PATTERN_ALL` + 无 `#(` 快速路径，`ThreadContent` 缓存 `AnnotatedString`。
+- `Images.kt` / `Avatars.kt` / `UserPage.kt` / `ForumPage.kt`：`NetworkImage` 用非 State 容器存边界且仅 `enablePreview` 注册；缓存 `DisplayRequest` 与 `bebas.ttf` 字体。
+- `RefreshRateUtil.kt` / `BaseComposeActivity.kt` / `MainActivityV2.kt` / `CustomSettingsPage.kt`：移除未提交的旧高刷代码，改为完整多刷新率自适应与多档位实时切换（`auto` / `max` / 设备支持的各具体 Hz）。
+
+### 验证
+
+设备 `emulator-5554`（1080×2400，debug 包，`dumpsys gfxinfo` 同脚本复测）：
+- **Tab 切换**：Janky frames 从 `16.67%`（legacy `50.00%`）降至 **`4.81%`**（legacy **`6.42%`**）；P50/P90/P95 从 `19ms / 32ms / 57ms` 降至 **`15ms / 18ms / 25ms`**；Missed Vsync 从 `1` 降至 **`0`**；Slow issue draw commands 从 `14` 降至 **`3`**。
+- **动态信息流滚动**：P99 从 `400ms` 降至 **`109ms`**；P90/P95 从 `48ms / 77ms` 降至 **`44ms / 65ms`**；Slow bitmap uploads 从 `3` 降至 **`0`**；GPU P50 从 `10ms` 降至 **`5ms`**。
+- **刷新率实时提交**：在「设置 → 个性化 → 屏幕刷新率」选「最高刷新率（60 Hz）」后，`dumpsys window windows` 立即出现 `preferredRefreshRate=60.000004 preferredDisplayMode=1`；切回「跟随系统（自适应）」后立即归零。
+
+### 涉及文件
+
+- `app/src/main/java/com/huanchengfly/tieba/post/DataStore.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/arch/BaseComposeActivity.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/MainActivityV2.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/utils/RefreshRateUtil.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/utils/AppPreferencesUtils.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/utils/EmoticonUtil.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/widgets/compose/FeedCardStyle.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/widgets/compose/FeedCard.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/widgets/compose/FloatingBars.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/widgets/compose/Toolbar.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/widgets/compose/BarsAutoHide.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/widgets/compose/LazyLoad.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/widgets/compose/Images.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/widgets/compose/Avatars.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/page/main/NavigationComponents.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/page/main/user/UserPage.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/page/forum/ForumPage.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/page/settings/custom/CustomSettingsPage.kt`
+- `app/src/main/res/values/strings.xml`
+
+### 遗留
+
+- 模拟器仅暴露单档 `60Hz` 模式；90Hz / 120Hz / 144Hz / LTPO 多档切换逻辑已按 `Display.supportedModes`（过滤同物理分辨率 + `alternativeRefreshRates`）适配，真机多高刷屏建议实测确认。
+
+---
+
+## DBG-023 退出帖子返回列表页后自动回到顶端
+
+**状态**：已修复（`810bdff8`）
+
+### 现象
+
+
+### 复现
+
+在 `emulator-5554` 进入「图拉丁吧」上滑 4 屏 → 记下当前可见帖子 → 点进帖子 → 按返回退出 → 观察吧内页位置直接回到顶部（`LV4 图拉丁P3` / 吧规）。
+
+### 定位
+
+- `arch/Extensions.kt:49` 的 `Flow<T>.collectPartialAsState(prop1, initial)` 用 `produceState(initialValue = initial)` + `.flowOn(Dispatchers.IO)` 收集状态。
+- 几乎所有页面的 `viewModel.uiState` 都是 `StateFlow<T>`。页面因跳转帖子被 `NavHost` 移出前台组合后，返回时 `StateFlow.value` 明明仍持有完整的 `forumInfo` 与 `threadList`，但 `collectPartialAsState` 首帧无视 `StateFlow.value` 强行吐出 `initial`（`null` / `persistentListOf()`）。
+- 在 `ForumPage` 中，首帧 `forumInfo == null` 触发 `StateScreen(isEmpty = true)` 把 `MyScaffold` + `HorizontalPager` + `ForumThreadListPage` 切换为 `LoadingPlaceholder` 销毁重建；在列表页中，首帧 0 条数据也会让 `LazyListState` 把恢复的 `firstVisibleItemIndex` clamp 成 `0`。
+- 另 `MyLazyColumn` / `MyLazyVerticalGrid` 的 `onGlobalEvent<GlobalEvent.ScrollToTop>` 未过滤 `LocalShouldLoad.current`，在 `beyondViewportPageCount = 1` 下双击顶栏会把隔壁隐藏 Tab 一并滚回顶。
+
+### 根因
+
+`collectPartialAsState` 未对 `StateFlow` 同步读取当前值，导致页面从返回栈恢复的首帧被 `initial`（空值）覆盖，摧毁 `StateScreen` 子树并把 `LazyListState` 滚动索引清零。
+
+### 修复
+
+- `arch/Extensions.kt`：`collectPartialAsState` 在上游是 `StateFlow<T>` 时，首帧同步以 `prop1.get(this.value)` 作为 `initialValue`，并直接收集不再绕 `flowOn(Dispatchers.IO)`。
+- `ui/widgets/compose/LazyLists.kt`：`ScrollToTop` 全局事件增加 `filter = { LocalShouldLoad.current }`。
+
+### 验证
+
+设备 `emulator-5554`（1080×2400），图拉丁吧上滑 4 屏后进帖再返回：
+- 修复前：进帖前停在 `求助。。。请问我这个配置想把显卡升级到4070s`，退出帖子后弹回顶部 `LV4 图拉丁P3` / `【图拉丁吧吧规】`。
+- 修复后：进帖前 `sata固态...` `[69,0][1011,221]`、`有没有大哥救一下...` `[69,499][1011,795]`、`小白求助贴 | AM4升级板U` `[69,1076][1011,1312]`；退出帖子后三者坐标完全一致（`[69,0][1011,221]`、`[69,499][1011,795]`、`[69,1076][1011,1312]`），0 像素偏移。
+
+### 涉及文件
+
+- `app/src/main/java/com/huanchengfly/tieba/post/arch/Extensions.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/widgets/compose/LazyLists.kt`
+
+### 遗留
+
+无。
+
+---
+
+## DBG-024 个人主页头像显示慢及帖子刷新与图片加载慢
+
+**状态**：已修复（`18f61267`）
+
+### 现象
+
+1. 进入「个人主页」时 96dp 头像先显示灰色占位圆较长时间才加载出来。
+2. 贴吧多图流与帖子详情图片加载慢、逐张排队；帖子列表刷新慢且弱网重复下拉易卡死等待。
+
+### 复现
+
+实测 `http://tb.himg.baidu.com/sys/portrait/item/...` 明文 HTTP 偶发 8s 超时，而 `https://himg.bdimg.com/sys/portrait/item/...` 仅 52ms；另 `portraith` 高清头像约 105KB（普通头像 4.8KB 的 22 倍）且不命中全站普通头像缓存。检查网络层发现 Retrofit 7 个客户端与 Sketch/Glide 均使用 OkHttp 默认 `maxRequestsPerHost = 5` 与 60s 超时。
+
+### 定位
+
+- `StringUtil.kt:150-167`：头像使用明文 `http://tb.himg.baidu.com`（无 HTTP/2 多路复用，易超时）。
+- `UserProfilePage.kt:807`：96dp 头像直接拉 `getBigAvatarUrl`，无已缓存普通头像垫底。
+- `App.kt:795` / `RetrofitTiebaApi.kt:355-414` / `OkHttpLibraryGlideModule.java:23`：未配置自定义 `Dispatcher`，同域名并发被 OkHttp 锁死在 5；API 超时 60s。
+- `PbPageRepository.kt` / `FrsPageRepository.kt` / `PersonalizedRepository.kt` / `PersonalizedViewModel.kt`：多处 `userList.first/find` O(N²) 查找；`FrsPageRepository.kt:50` 每次刷新吧内页还在 Flow 中同步执行 `AppCache.put(..., response.toString())`（巨型 Protobuf 字符串序列化且全仓无人读取）。
+- 列表与帖子 ViewModel 刷新均用 `flatMapConcat`，弱网旧请求未结束时新下拉被串行堵塞。
+
+### 根因
+
+头像域名协议陈旧且大图无缓存小图渐进垫底；全站 OkHttp 单域名默认 5 并发导致贴吧同域名多图与 API 严重排队；数据层 O(N²) 扫描、无用同步大字符串写盘与 `flatMapConcat` 串行阻塞拖慢刷新。
+
+### 修复
+
+- `StringUtil.kt`：头像域名升级为 `https://himg.bdimg.com`。
+- `Avatars.kt` / `UserProfilePage.kt`：新增 `AvatarWithPreview`，个人主页 96dp 大头像先用已缓存的普通头像 0ms 瞬显垫底，再平滑叠加高清 `portraith` 大图。
+- `NetworkConfig.kt` / `App.kt` / `RetrofitTiebaApi.kt` / `OkHttpLibraryGlideModule.java` / `AppPreferencesUtils.kt` / `MoreSettingsPage.kt`：统一管理 API 与图片共享 `Dispatcher`、`ConnectionPool` 与动态超时（默认总并发 64、单域名并发 16、超时 15s），并在「设置 → 更多」提供实时生效的「最大并发请求数」「单域名最大并发数」「网络请求超时」设置项。
+- `PbPageRepository.kt` / `FrsPageRepository.kt` / `PersonalizedRepository.kt` / `PersonalizedViewModel.kt`：改用 `HashMap`/`HashSet` O(N) 关联，移除无人读取的 `FrsPageRepository` `AppCache.put(..., response.toString())`。
+- `PersonalizedViewModel.kt` / `ForumThreadListViewModel.kt` / `ThreadViewModel.kt` / `ConcernViewModel.kt` / `HotViewModel.kt`：刷新与重载流由 `flatMapConcat` 改为 `flatMapLatest`。
+
+### 验证
+
+- `:app:assembleDebug` 编译通过（`BUILD SUCCESSFUL in 1m 15s`）。
+- 设备 `emulator-5554`：进入「个人主页」头像立即清晰呈现（中心采样 1169 种真实 RGB 颜色）；进入「设置 → 更多」完整显示「最大并发请求数（64 个并发）」「单域名最大并发数（16 个并发）」「网络请求超时（15 秒）」。
+
+### 涉及文件
+
+- `app/src/main/java/com/huanchengfly/tieba/post/utils/StringUtil.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/widgets/compose/Avatars.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/page/user/UserProfilePage.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/utils/NetworkConfig.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/App.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/api/retrofit/RetrofitTiebaApi.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/components/glide/OkHttpLibraryGlideModule.java`
+- `app/src/main/java/com/huanchengfly/tieba/post/utils/AppPreferencesUtils.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/page/settings/more/MoreSettingsPage.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/repository/PbPageRepository.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/repository/FrsPageRepository.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/repository/PersonalizedRepository.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/page/main/explore/personalized/PersonalizedViewModel.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/page/forum/threadlist/ForumThreadListViewModel.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/page/thread/ThreadViewModel.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/page/main/explore/concern/ConcernViewModel.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/page/main/explore/hot/HotViewModel.kt`
+- `app/src/main/res/values/strings.xml`
+
+### 遗留
+
+无。
+
+---
+## DBG-025 0 关注时「关注」页正文全空无任何提示
+
+**状态**：已修复（`18f61267`）
+
+### 现象
+
+当登录账号 0 关注（或关注流返回 0 条动态）时，进入「动态 → 关注」页签，页面只剩顶栏与底栏，中间完全空白且无任何提示或刷新按钮。
+
+### 复现
+
+在 `emulator-5554` 使用 0 关注账号 `G1oow` 切至「动态 → 关注」，`uiautomator dump` 仅含顶栏与底栏节点，正文区无任何元素。
+
+### 定位
+
+- `ConcernPage.kt:65` 直接渲染 `PullRefresh -> LoadMoreLayout -> MyLazyColumn`，未套 `StateScreen` 也没有空态与错误态分支。
+- `ConcernViewModel.kt:172` 未保存 `error`，且未过滤无 `threadList` 的不可渲染占位条目（`ConcernPage` 只渲染 `item.threadList != null`）。
+- `ConcernPage.kt:81` 列表 `key` 仍为 `${item.recommendType}_${item.threadList?.id}`，与 `ConcernViewModel.distinctById()` 的 `${recommendType}_${postData?.id}_${threadList?.id}` 不一致。
+
+### 根因
+
+`ConcernPage` 缺失空态/加载态/错误态页面承接，且未在状态层过滤不可渲染条目。
+
+### 修复
+
+- `ConcernViewModel.kt`：`ConcernUiState` 增加 `error` 字段；`Refresh`/`LoadMore` 过滤掉 `threadList == null` 的不可渲染项。
+- `ConcernPage.kt`：外层接入 `StateScreen`，空态使用 `TipScreen` 展示空箱子 Lottie 动画、「暂无关注动态」标题、「关注感兴趣的用户后，TA 们的动态会显示在这里」说明与「刷新」按钮；补齐错误态 `ErrorScreen`、`LoadMoreLayout` 的 `loadEnd = !hasMore` / `isEmpty` 与对齐的列表 `key`。
+- `strings.xml`：新增 `title_concern_empty` / `summary_concern_empty`。
+
+### 验证
+
+设备 `emulator-5554`（1080×2400，中线 540px），0 关注账号进入「动态 → 关注」：
+- 修复前：正文区 0 节点，完全空白。
+- 修复后：居中展示空箱子动画 + `暂无关注动态` `[383,1307][698,1382]`（中点 `540.5px`）+ `关注感兴趣的用户后，TA 们的动态会显示在这里` `[96,1403][984,1525]`（中点 `540.0px`）+ `刷新` `[503,1567][577,1619]`（中点 `540.0px`）。
+
+### 涉及文件
+
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/page/main/explore/concern/ConcernPage.kt`
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/page/main/explore/concern/ConcernViewModel.kt`
+- `app/src/main/res/values/strings.xml`
 
 ### 遗留
 

@@ -235,14 +235,17 @@ fun NetworkImage(
     var shouldLoad by remember { mutableStateOf(shouldLoadImage(context, skipNetworkCheck)) }
     val enableClick = remember(photoViewData, shouldLoad) { photoViewData != null || !shouldLoad }
 
-    val colorMask =
-        if (ExtendedTheme.colors.isNightMode && context.appPreferences.imageDarkenWhenNightMode) {
+    val isNight = ExtendedTheme.colors.isNightMode
+    val darkenWhenNight = remember(context) { context.appPreferences.imageDarkenWhenNightMode }
+    val colorMask = remember(isNight, darkenWhenNight) {
+        if (isNight && darkenWhenNight) {
             MaskTransformation(Color.parseColor("#99000000"))
         } else null
+    }
 
-    var layoutSize by remember { mutableStateOf(IntSize.Zero) }
-
-    var layoutOffset by remember { mutableStateOf(Offset.Zero) }
+    // 列表滚动期间每帧都会改变屏幕坐标：用普通容器引用而不是 mutableStateOf 保存边界，
+    // 仅在真正长按预览时按需读取，避免滚动时每张可见图每帧写 Compose State 触发掉帧。
+    val layoutBounds = remember { NetworkImageLayoutBounds() }
 
     val request = remember(imageUri, shouldLoad, colorMask) {
         DisplayRequest(context, imageUri) {
@@ -269,12 +272,12 @@ fun NetworkImage(
 
     var isLongPressing by remember { mutableStateOf(false) }
 
-    if (enablePreview) {
+    if (enablePreview && isLongPressing) {
         PreviewImage(
             imageUri = imageUri,
-            show = isLongPressing,
-            layoutSizeProvider = { layoutSize },
-            layoutOffsetProvider = { layoutOffset },
+            show = true,
+            layoutSizeProvider = { layoutBounds.size },
+            layoutOffsetProvider = { layoutBounds.offset },
             imageAspectRatioProvider = { imageAspectRatio },
             originImageUri = photoViewData?.data?.originUrl
         )
@@ -282,15 +285,19 @@ fun NetworkImage(
 
     Box(
         modifier = Modifier
-            .pointerInput(enableClick) {
+            .pointerInput(enableClick, enablePreview) {
                 if (enableClick) {
                     detectTapGestures(
-                        onLongPress = {
-                            isLongPressing = true
-                        },
-                        onPress = {
-                            tryAwaitRelease()
-                            isLongPressing = false
+                        onLongPress = if (enablePreview) {
+                            { isLongPressing = true }
+                        } else null,
+                        onPress = if (enablePreview) {
+                            {
+                                tryAwaitRelease()
+                                isLongPressing = false
+                            }
+                        } else {
+                            {}
                         },
                         onTap = {
                             if (!shouldLoad) {
@@ -307,23 +314,21 @@ fun NetworkImage(
                     )
                 }
             }
-            .pointerInput(Unit) {
-                detectDragGesturesAfterLongPress { change, dragAmount ->
-                    Log.i("NetworkImage", "dragAmount: $dragAmount")
-                }
-            }
             .then(modifier)
     ) {
         AsyncImage(
             request = request,
             modifier = Modifier
                 .fillMaxSize()
-                .onSizeChanged {
-                    layoutSize = it
-                }
-                .onGloballyPositioned {
-                    layoutOffset = it.positionInWindow()
-                },
+                .then(
+                    if (enablePreview) {
+                        Modifier
+                            .onSizeChanged { layoutBounds.size = it }
+                            .onGloballyPositioned { layoutBounds.offset = it.positionInWindow() }
+                    } else {
+                        Modifier
+                    }
+                ),
             contentDescription = contentDescription,
             contentScale = contentScale,
             state = state,
@@ -353,4 +358,9 @@ fun NetworkImage(
         skipNetworkCheck = skipNetworkCheck,
         enablePreview = enablePreview
     )
+}
+
+private class NetworkImageLayoutBounds {
+    var size: IntSize = IntSize.Zero
+    var offset: Offset = Offset.Zero
 }

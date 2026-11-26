@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -26,6 +27,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import androidx.datastore.preferences.core.stringPreferencesKey
+import com.huanchengfly.tieba.post.rememberPreferenceAsState
 import com.google.accompanist.systemuicontroller.SystemUiController
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.huanchengfly.tieba.post.activities.BaseActivity
@@ -34,6 +37,13 @@ import com.huanchengfly.tieba.post.ui.common.windowsizeclass.WindowSizeClass
 import com.huanchengfly.tieba.post.ui.common.windowsizeclass.calculateWindowSizeClass
 import com.huanchengfly.tieba.post.ui.widgets.compose.LocalBarsAutoHideState
 import com.huanchengfly.tieba.post.ui.widgets.compose.rememberBarsAutoHideState
+import com.huanchengfly.tieba.post.ui.widgets.compose.FeedCardStyle
+import com.huanchengfly.tieba.post.ui.widgets.compose.FeedCardStylePrefKey
+import com.huanchengfly.tieba.post.ui.widgets.compose.FloatingBarStyle
+import com.huanchengfly.tieba.post.ui.widgets.compose.FloatingBarStylePrefKey
+import com.huanchengfly.tieba.post.ui.widgets.compose.LocalFeedCardStyle
+import com.huanchengfly.tieba.post.ui.widgets.compose.LocalFloatingBarStyle
+import com.huanchengfly.tieba.post.utils.RefreshRateUtil
 import com.huanchengfly.tieba.post.utils.AccountUtil.LocalAccountProvider
 import com.huanchengfly.tieba.post.utils.ThemeUtil
 
@@ -75,6 +85,7 @@ abstract class BaseComposeActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        RefreshRateUtil.applyRefreshRate(this, appPreferences.preferredRefreshRate)
         setContent {
             TiebaLiteTheme {
                 val systemUiController = rememberSystemUiController()
@@ -99,12 +110,27 @@ abstract class BaseComposeActivity : BaseActivity() {
                 LocalAccountProvider {
                     val windowSizeClass = calculateWindowSizeClass(activity = this)
                     val barsAutoHideState = rememberBarsAutoHideState()
+                    val feedCardStylePref by rememberPreferenceAsState(
+                        key = stringPreferencesKey(FeedCardStylePrefKey),
+                        defaultValue = appPreferences.feedCardStyle ?: FeedCardStyle.TONAL_CAPSULE.prefValue,
+                    )
+                    val floatingBarStylePref by rememberPreferenceAsState(
+                        key = stringPreferencesKey(FloatingBarStylePrefKey),
+                        defaultValue = appPreferences.floatingBarStyle ?: FloatingBarStyle.SHADOW.prefValue,
+                    )
+                    val refreshRatePref by rememberPreferenceAsState(
+                        key = stringPreferencesKey(RefreshRateUtil.PREF_KEY_REFRESH_RATE),
+                        defaultValue = appPreferences.preferredRefreshRate ?: RefreshRateUtil.MODE_AUTO,
+                    )
+                    LaunchedEffect(refreshRatePref) {
+                        RefreshRateUtil.applyRefreshRate(this@BaseComposeActivity, refreshRatePref)
+                    }
                     CompositionLocalProvider(
                         LocalWindowSizeClass provides windowSizeClass,
                         LocalBarsAutoHideState provides barsAutoHideState,
+                        LocalFeedCardStyle provides FeedCardStyle.of(feedCardStylePref),
+                        LocalFloatingBarStyle provides FloatingBarStyle.of(floatingBarStylePref),
                     ) {
-                        // 嵌套滚动连接挂在整个页面内容之上：滚动事件从内层列表
-                        // 向上冒泡到这里，只做方向观察、不消费增量（见 BarsAutoHideState）。
                         // 根部铺主题底色：窗口与多数页面的 Scaffold 背景都是 Transparent，
                         // 不铺底时未被内容覆盖的区域（状态栏 / 挖孔 / 导航栏）会直接露出系统黑底。
                         // 横向安全区（横屏刘海/挖孔、三键导航侧栏）：只做水平避让，

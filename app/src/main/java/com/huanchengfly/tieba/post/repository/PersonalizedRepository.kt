@@ -14,16 +14,16 @@ object PersonalizedRepository {
         TiebaApi.getInstance()
             .personalizedProtoFlow(loadType, page)
             .map { response ->
-                val liveThreadIds =
-                    response.data_?.thread_list?.filter { it.ala_info != null }?.map { it.id }
-                        ?: emptyList()
+                val liveThreadIds = response.data_?.thread_list
+                    ?.mapNotNull { if (it.ala_info != null) it.id else null }
+                    ?.toHashSet()
+                    ?: emptySet()
+                if (liveThreadIds.isEmpty()) return@map response
                 response.copy(
                     data_ = response.data_?.copy(
-                        thread_list = response.data_.thread_list.filter { !liveThreadIds.contains(it.id) },
+                        thread_list = response.data_.thread_list.filter { it.id !in liveThreadIds },
                         thread_personalized = response.data_.thread_personalized.filter {
-                            !liveThreadIds.contains(
-                                it.tid
-                            )
+                            it.tid !in liveThreadIds
                         }
                     )
                 )

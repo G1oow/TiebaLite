@@ -182,6 +182,33 @@ open class AppPreferencesUtils private constructor(ctx: Context) {
         defaultValue = "tonal_capsule",
         key = "feed_card_style"
     )
+
+    /**
+     * 首选屏幕刷新率："auto"（跟随系统自适应，默认）/"max"（最高刷新率）/具体整数 Hz（如 "60"、"90"、"120"）。
+     * 键名与 [RefreshRateUtil.PREF_KEY_REFRESH_RATE] 一致。
+     */
+    var preferredRefreshRate by DataStoreDelegates.string(
+        defaultValue = RefreshRateUtil.MODE_AUTO,
+        key = RefreshRateUtil.PREF_KEY_REFRESH_RATE
+    )
+
+    /** 最大总并发请求数（API 与图片调度器实时生效）。 */
+    var maxConcurrentRequests by DataStoreDelegates.string(
+        defaultValue = NetworkConfig.DEFAULT_MAX_REQUESTS.toString(),
+        key = NetworkConfig.PREF_KEY_MAX_REQUESTS
+    )
+
+    /** 单域名最大并发请求数（默认 16，突破 OkHttp 默认 5 并发瓶颈）。 */
+    var maxConcurrentRequestsPerHost by DataStoreDelegates.string(
+        defaultValue = NetworkConfig.DEFAULT_MAX_REQUESTS_PER_HOST.toString(),
+        key = NetworkConfig.PREF_KEY_MAX_REQUESTS_PER_HOST
+    )
+
+    /** 网络请求超时时间（秒，默认 15s）。 */
+    var networkTimeoutSeconds by DataStoreDelegates.string(
+        defaultValue = NetworkConfig.DEFAULT_TIMEOUT_SECONDS.toString(),
+        key = NetworkConfig.PREF_KEY_TIMEOUT_SECONDS
+    )
     var listItemsBackgroundIntermixed by DataStoreDelegates.boolean(defaultValue = true)
 
     var listSingle by DataStoreDelegates.boolean(defaultValue = false)

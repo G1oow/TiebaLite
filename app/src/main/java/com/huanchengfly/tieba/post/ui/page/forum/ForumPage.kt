@@ -917,6 +917,10 @@ private fun RowScope.StatCardItem(
     statNum: Int,
     statText: String
 ) {
+    val context = LocalContext.current
+    val bebasFontFamily = remember(context) {
+        FontFamily(Typeface.createFromAsset(context.assets, "bebas.ttf"))
+    }
     Column(
         modifier = Modifier.weight(1f),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -924,12 +928,7 @@ private fun RowScope.StatCardItem(
         Text(
             text = statNum.getShortNumString(),
             fontSize = 20.sp,
-            fontFamily = FontFamily(
-                Typeface.createFromAsset(
-                    LocalContext.current.assets,
-                    "bebas.ttf"
-                )
-            ),
+            fontFamily = bebasFontFamily,
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(

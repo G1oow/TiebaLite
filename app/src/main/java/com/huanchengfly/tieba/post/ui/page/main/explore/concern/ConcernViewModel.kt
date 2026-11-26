@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.flatMapConcat
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
@@ -50,7 +51,7 @@ class ConcernViewModel @Inject constructor() :
         @OptIn(ExperimentalCoroutinesApi::class)
         override fun toPartialChangeFlow(intentFlow: Flow<ConcernUiIntent>): Flow<ConcernPartialChange> =
             merge(
-                intentFlow.filterIsInstance<ConcernUiIntent.Refresh>().flatMapConcat { produceRefreshPartialChange() },
+                intentFlow.filterIsInstance<ConcernUiIntent.Refresh>().flatMapLatest { produceRefreshPartialChange() },
                 intentFlow.filterIsInstance<ConcernUiIntent.LoadMore>().flatMapConcat { it.producePartialChange() },
                 intentFlow.filterIsInstance<ConcernUiIntent.Agree>().flatMapConcat { it.producePartialChange() },
             )
@@ -165,16 +166,20 @@ sealed interface ConcernPartialChange : PartialChange<ConcernUiState> {
     sealed class Refresh private constructor() : ConcernPartialChange {
         override fun reduce(oldState: ConcernUiState): ConcernUiState =
             when (this) {
-                Start -> oldState.copy(isRefreshing = true)
+                Start -> oldState.copy(isRefreshing = true, error = null)
                 is Success -> oldState.copy(
                     isRefreshing = false,
-                    data = data.distinctById(),
+                    error = null,
+                    // 过滤掉无 threadList 的不可渲染条目，防止 0 关注时服务端返回占位项导致页面看似非空实则全白
+                    data = data.filter { it.threadList != null }.distinctById(),
                     hasMore = hasMore,
                     nextPageTag = nextPageTag,
                 )
-                is Failure -> oldState.copy(isRefreshing = false)
+                is Failure -> oldState.copy(
+                    isRefreshing = false,
+                    error = error,
+                )
             }
-
         data object Start : Refresh()
 
         data class Success(
@@ -194,13 +199,12 @@ sealed interface ConcernPartialChange : PartialChange<ConcernUiState> {
                 Start -> oldState.copy(isLoadingMore = true)
                 is Success -> oldState.copy(
                     isLoadingMore = false,
-                    data = (oldState.data + data).distinctById(),
+                    data = (oldState.data + data.filter { it.threadList != null }).distinctById(),
                     hasMore = hasMore,
                     nextPageTag = nextPageTag,
                 )
                 is Failure -> oldState.copy(isLoadingMore = false)
             }
-
         data object Start : LoadMore()
 
         data class Success(
@@ -221,6 +225,6 @@ data class ConcernUiState(
     val hasMore: Boolean = true,
     val nextPageTag: String = "",
     val data: ImmutableList<ConcernData> = persistentListOf(),
+    val error: Throwable? = null,
 ): UiState
-
 sealed interface ConcernUiEvent : UiEvent
