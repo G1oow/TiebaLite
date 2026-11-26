@@ -57,6 +57,7 @@
 | [DBG-010](#dbg-010-帖子详情主楼下方的分隔线按用户要求删除) | 2026-11-26 | 帖子页主楼底部那条线随滚动晃动，用户要求删除 | 已修复（`bc145e34`） |
 | [DBG-011](#dbg-011-帖子详情吸顶页签被展开的顶栏盖住) | 2026-11-26 | 帖子页回拉后顶栏出现，把吸顶的「回复 / 全部 / 只看楼主」整条盖住 | 已修复（`bc145e34`） |
 | [DBG-012](#dbg-012-顶部-inset-只取-statusbars两处按窗口百分比取宽) | 2026-11-26 | 5 处顶部避让只算 statusBars；个人主页 / 错误页按窗口百分比取宽 | 已修复 |
+| [DBG-013](#dbg-013-通知权限请求撞上已销毁的-activity-崩溃) | 2026-11-26 | 切主题 / 快速进出页面偶发 `IllegalStateException: The activity has been destroyed` | 已修复（未提交） |
 
 ---
 
@@ -682,6 +683,87 @@
 - `PbContentRender` / `FeedCard` / `Search` 里按窗口宽度分档的媒体比例（0.5 / 0.6 / 0.8）**没有改**：
   那里表达的是「图片占卡片宽度的比例」，卡片本身已被 `Container` 收窄到 840dp，
   不是规范禁止的「窗口百分比当宽度上限」。
+
+---
+
+## DBG-013 通知权限请求撞上已销毁的 Activity 崩溃
+
+**状态**：已修复（未提交）
+
+### 现象
+
+启动 / 切主题 / 快速进出页面时偶发闪退，`logcat` 里是：
+
+```
+FATAL EXCEPTION: main
+java.lang.IllegalStateException: The activity has been destroyed,
+    please manually determine the status of the activity
+    at com.hjq.permissions.PermissionChecker.checkActivityStatus(PermissionChecker.java:51)
+    at com.hjq.permissions.XXPermissions.request(XXPermissions.java:169)
+    at com.huanchengfly.tieba.post.utils.PermissionRequester.start(PermissionUtils.kt:439)
+    at com.huanchengfly.tieba.post.MainActivityV2.requestNotificationPermission(MainActivityV2.kt:312)
+    at com.huanchengfly.tieba.post.MainActivityV2.onStart$lambda$1(MainActivityV2.kt:346)
+    at android.os.Handler.handleCallback(Handler.java:1095)
+```
+
+另一种变体的首行是 `The activity has been finishing`，堆栈相同。
+
+### 复现
+
+前置：登录状态下撤销通知权限（`pm revoke ... POST_NOTIFICATIONS`），这样每次 `onStart` 都会真的去请求权限。
+
+```powershell
+adb shell cmd uimode night yes; Start-Sleep -Milliseconds 500
+adb shell cmd uimode night no;  Start-Sleep -Milliseconds 500
+# 连按 10 次，然后 adb logcat -b crash -d
+```
+
+`MainActivityV2` 的 `configChanges` 不含 `uiMode`，每次切换都会重建 Activity。
+0.5s 间隔连切 10 次，在**修复前**的包上稳定复现（第一轮即崩）。
+
+> 3 秒间隔切 4 次**不**复现——必须让下一次销毁落在上一次 `onStart` 之后 100ms 的窗口里。
+> 早期几次偶发崩溃（12:41 / 12:49 / 15:24）是快速连续操作（dump + 点击 + 深链）时撞上的。
+
+### 定位
+
+1. `onStart()` 末尾原本是 `handler.postDelayed({ requestNotificationPermission() }, 100)`。
+2. `handler` 是 Activity 的普通字段，`postDelayed` 的 Runnable **不随 Activity 销毁取消**。
+3. 若 Activity 在这 100ms 内被销毁或进入 finishing，Runnable 仍会执行，`XXPermissions.request()`
+   内的 `PermissionChecker.checkActivityStatus` 直接抛 `IllegalStateException`。
+4. `git blame` 显示这三行自 2022-09-24 起就没动过（`7cf6a8680`），不是本次迁移引入的。
+
+### 根因
+
+权限请求挂在一个与 Activity 生命周期无关的 Handler 上，延迟窗口内 Activity 结束就会炸。
+
+### 修复
+
+| 文件 | 改动 |
+|---|---|
+| `MainActivityV2.kt` | `handler.postDelayed` → `lifecycleScope.launch { delay(...); if (lifecycle 至少 RESUMED && !isFinishing && !isDestroyed) requestNotificationPermission() }`；协程随 lifecycle 取消，再补一次「是否还在前台」判断 |
+| 同上 | 删掉只此一处使用的 `handler` 字段与 `android.os.Handler` / `android.os.Looper` 两个 import；延后时长提成 `NotificationPermissionRequestDelay = 100L` |
+
+行为未变：仍是 `onStart` 后 100ms 请求一次，仍只在「已登录 + API 33+」时请求。
+
+### 验证
+
+设备 `emulator-5554`，`pm revoke` 后未授权状态。
+
+| 项 | 修复前（5.1.2 基线包） | 修复后 |
+|---|---|---|
+| 0.5s × 10 次切深浅色 | **第 1 轮即 FATAL**，堆栈同上 | 连跑 3 轮，`logcat -b crash` **0 行** |
+| 权限弹窗是否仍出现 | 出现 | 出现（`Allow 贴吧 Lite to send you notifications?`，说明请求确实发出去了） |
+| 构建 | — | `:app:compileDebugKotlin`、`:app:assembleDebug` → `BUILD SUCCESSFUL`，本文件无新增告警 |
+
+### 涉及文件
+
+`MainActivityV2.kt`。
+
+### 遗留
+
+- 仍是每次 `onStart` 都尝试请求（与改造前一致）。若已永久拒绝，系统不会弹窗，但每次仍会走一遍
+  `XXPermissions` 流程；要不要加「只请求一次」的标记没有改。
+- 只在 API 37 模拟器上验证；API 33~36 的权限对话框时序没有覆盖。
 
 ---
 

@@ -216,3 +216,48 @@ M2 存量热点（按文件数，`import` 计数）：
 - [ ] 阶段 4 — 帖子页 / 吧页
 - [ ] 阶段 5 — 设置类
 - [ ] 阶段 6 — 依赖收尾
+
+---
+
+## 7. 待办（跨阶段，不归属单一阶段）
+
+这些是在迁移 / 修复过程中发现、但落在上面阶段划分之外的欠账。做完一项勾一项。
+
+### 7.1 吸顶条与顶栏联动（同 DBG-011 的做法）
+
+DBG-011 只修了帖子页的吸顶页签。其余 5 个页面用的是同一套写法
+（`stickyHeader` + `padding(top = topBarInsetsHeight())`），顶栏展开时会整条盖住它们：
+
+| 页面 | 位置 | 状态 |
+|---|---|---|
+| 楼中楼 `SubPostsPage.kt` | 446 附近的 `stickyHeader` | [ ] 待改 |
+| 浏览记录 `HistoryListPage.kt` | 125 / 165 | [ ] 待改 |
+| 吧内搜索 `SearchForumPage.kt` | 126 / 150 | [ ] 待改 |
+| 用户搜索 `SearchUserPage.kt` | 128 / 157 | [ ] 待改 |
+| 吧内帖子搜索 `ForumSearchPostPage.kt` | 424 | [ ] 待改 |
+
+改法照 `ThreadPage.kt` 的 `ThreadHeaderKey` + `graphicsLayer` 位移 + `zIndex(1f)`（见 DBG-011），
+每处都要按 AGENTS.md §6 验四条。**注意**：这几个页面的吸顶条没有帖子页那么多交互，
+可以先用同一份实现；如果第 3 处以上重复，再抽成公共封装（§3.1 不为单点预先抽象）。
+
+### 7.2 剩余硬编码文案
+
+日志页 / 关于页 / 我的页已清（DBG-009）。剩余：
+
+| 文件 | 文案 |
+|---|---|
+| `ui/page/settings/about/AboutPage.kt` | 「无法打开链接」「项目地址」 |
+| `ui/page/main/user/UserPage.kt` | 「切换到: …」「回帖内容已自动保存」 |
+
+### 7.3 阶段 2e 的连带项
+
+页签迁移（阶段 2c）为了保持观感，暂时继续读 M2 的 `ContentAlpha.medium` 算未选中色。
+清 `ContentAlpha` 时要一并换成显式 alpha，并确认 12 个页签视图的选中 / 未选中色不变。
+
+### 7.4 其它
+
+- `Errors.kt` 的内容块宽度（560dp 上限）只在语义树上验证了居中，没直接量到容器宽度。
+- 刘海高于状态栏的机型没有实机可测：`topBarInsetsPadding()` / `topBarInsetsHeight()` 的改动在这台
+  模拟器上观感不变（statusBars 与 displayCutout 同为 118px），属「按规范改、未实测」。
+- `MainActivityV2` 里通知权限请求已改为 lifecycle 感知（DBG-013）；若后续要加「只请求一次」的开关，
+  现在的写法每次 `onStart` 都会尝试一次（与改造前一致，未改行为）。
