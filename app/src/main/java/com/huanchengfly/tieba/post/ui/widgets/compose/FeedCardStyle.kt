@@ -54,8 +54,8 @@ import com.huanchengfly.tieba.post.utils.StringUtil.getShortNumString
 /**
  * 帖子卡片视觉样式（设置 → 个性化 → 帖子卡片样式）。
  *
- * - [TONAL_CAPSULE]：方案 D（默认）—— 18dp 大圆角无描边色调表面，吧名置顶左上角，胶囊式点赞/评论按钮；
- * - [ELEVATED]：方案 A —— 16dp 圆角柔和浮卡（带作者头、浅色/深灰微投影 + 极细描边，纯黑自动去描边），吧名收进底栏左侧；
+ * - [ELEVATED]：方案 A（默认）—— 16dp 圆角柔和浮卡（带作者头、浅色/深灰微投影 + 极细描边，纯黑自动去描边），吧名收进底栏左侧；
+ * - [TONAL_CAPSULE]：方案 D —— 18dp 大圆角无描边色调表面，吧名置顶左上角，胶囊式点赞/评论按钮；
  * - [MINIMAL]：方案 B —— 极简通栏信息流，单行轻量作者头 + 更突出标题与正文呼吸感 + 右对齐轻量互动计数；
  * - [CLASSIC]：原版样式 —— 保持历史 TiebaLite 通栏布局与底部三等分操作栏。
  */
@@ -71,7 +71,7 @@ enum class FeedCardStyle(val prefValue: String) {
 
     companion object {
         fun of(value: String?): FeedCardStyle =
-            entries.firstOrNull { it.prefValue == value } ?: TONAL_CAPSULE
+            entries.firstOrNull { it.prefValue == value } ?: ELEVATED
     }
 }
 
@@ -93,7 +93,7 @@ fun rememberFeedCardStyle(): FeedCardStyle {
     LocalFeedCardStyle.current?.let { return it }
     val value by rememberPreferenceAsState(
         key = stringPreferencesKey(FeedCardStylePrefKey),
-        defaultValue = FeedCardStyle.TONAL_CAPSULE.prefValue,
+        defaultValue = FeedCardStyle.ELEVATED.prefValue,
     )
     return FeedCardStyle.of(value)
 }

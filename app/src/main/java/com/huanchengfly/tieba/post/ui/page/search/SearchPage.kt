@@ -81,11 +81,10 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.Container
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoadHorizontalPager
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyBackHandler
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
-import com.huanchengfly.tieba.post.ui.widgets.compose.PagerTabIndicator
 import com.huanchengfly.tieba.post.ui.widgets.compose.SearchBox
-import com.huanchengfly.tieba.post.ui.widgets.compose.Tab
-import com.huanchengfly.tieba.post.ui.widgets.compose.TabClickMenu
-import com.huanchengfly.tieba.post.ui.widgets.compose.TabRow
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTab
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTabClickMenu
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTabRow
 import com.huanchengfly.tieba.post.ui.widgets.compose.TopAppBarContainer
 import com.huanchengfly.tieba.post.ui.widgets.compose.picker.ListSinglePicker
 import androidx.navigation.NavHostController
@@ -378,22 +377,20 @@ private fun ColumnScope.SearchTabRow(
     pages: ImmutableList<SearchPageItem>,
 ) {
     val coroutineScope = rememberCoroutineScope()
-    TabRow(
+    SegmentedTabRow(
         selectedTabIndex = pagerState.currentPage,
-        indicator = { PagerTabIndicator(pagerState) },
-        divider = {},
-        backgroundColor = Color.Transparent,
+        pagerState = pagerState,
+        onPrimarySurface = true,
         contentColor = ExtendedTheme.colors.onTopBar,
+        equalWidth = true,
+        minTabWidth = 72.dp,
         modifier = Modifier
             .align(Alignment.CenterHorizontally)
-            .width(76.dp * pages.size),
+            .padding(vertical = 6.dp),
     ) {
         pages.fastForEachIndexed { index, item ->
-            val tabTextStyle =
-                MaterialTheme.typography.button.copy(fontSize = 13.sp, letterSpacing = 0.sp)
-
             if (item.supportSort) {
-                TabClickMenu(
+                SegmentedTabClickMenu(
                     selected = pagerState.currentPage == index,
                     onClick = {
                         coroutineScope.launch {
@@ -401,9 +398,7 @@ private fun ColumnScope.SearchTabRow(
                         }
                     },
                     text = {
-                        ProvideTextStyle(value = tabTextStyle) {
-                            item.text(pagerState.currentPage == index)
-                        }
+                        item.text(pagerState.currentPage == index)
                     },
                     menuContent = {
                         ListSinglePicker(
@@ -418,19 +413,16 @@ private fun ColumnScope.SearchTabRow(
                     }
                 )
             } else {
-                Tab(
-                    text = {
-                        ProvideTextStyle(value = tabTextStyle) {
-                            item.text(pagerState.currentPage == index)
-                        }
-                    },
+                SegmentedTab(
                     selected = pagerState.currentPage == index,
                     onClick = {
                         coroutineScope.launch {
                             pagerState.animateScrollToPage(index)
                         }
                     },
-                )
+                ) {
+                    item.text(pagerState.currentPage == index)
+                }
             }
         }
     }

@@ -5,9 +5,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.MaterialTheme
@@ -46,9 +46,8 @@ import com.huanchengfly.tieba.post.ui.page.main.explore.hot.HotPage
 import com.huanchengfly.tieba.post.ui.page.main.explore.personalized.PersonalizedPage
 import com.huanchengfly.tieba.post.ui.widgets.compose.ActionItem
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoadHorizontalPager
-import com.huanchengfly.tieba.post.ui.widgets.compose.PagerTabIndicator
-import com.huanchengfly.tieba.post.ui.widgets.compose.Tab
-import com.huanchengfly.tieba.post.ui.widgets.compose.TabRow
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTab
+import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTabRow
 import com.huanchengfly.tieba.post.ui.widgets.compose.Toolbar
 import com.huanchengfly.tieba.post.ui.widgets.compose.accountNavIconIfCompact
 import com.huanchengfly.tieba.post.rememberPreferenceAsState
@@ -83,20 +82,26 @@ private fun ColumnScope.ExplorePageTab(
     val coroutineScope = rememberCoroutineScope()
     val showFollowedOnlyToggle = pages[pagerState.currentPage].id == "personalized"
 
-    Box(modifier = Modifier.fillMaxWidth()) {
-        TabRow(
+    // 固定次级槽高度为 50dp（高于右侧 48dp IconButton 与 38dp 胶囊页签）：
+    // 右侧「只看已关注的吧」按钮只在推荐页出现，若容器高度随子项自适应，
+    // 切页时顶栏高度会在 50dp 与 60dp 之间跳变，触发 MyScaffold 重新计算 contentPadding，
+    // 导致列表正文与页签胶囊同时上下跳动。
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp)
+    ) {
+        SegmentedTabRow(
             selectedTabIndex = pagerState.currentPage,
-            indicator = { PagerTabIndicator(pagerState) },
-            divider = {},
-            backgroundColor = Color.Transparent,
+            pagerState = pagerState,
+            onPrimarySurface = true,
             contentColor = ExtendedTheme.colors.onTopBar,
-            modifier = Modifier
-                .align(Alignment.Center)
-                .width(76.dp * pages.size),
+            equalWidth = true,
+            minTabWidth = 68.dp,
+            modifier = Modifier.align(Alignment.Center),
         ) {
             pages.fastForEachIndexed { index, item ->
-                Tab(
-                    text = { item.name(pagerState.currentPage == index) },
+                SegmentedTab(
                     selected = pagerState.currentPage == index,
                     onClick = {
                         coroutineScope.launch {
@@ -107,7 +112,9 @@ private fun ColumnScope.ExplorePageTab(
                             }
                         }
                     },
-                )
+                ) {
+                    item.name(pagerState.currentPage == index)
+                }
             }
         }
         if (showFollowedOnlyToggle) {
@@ -133,11 +140,12 @@ private fun TabText(
     selected: Boolean
 ) {
     val style = MaterialTheme.typography.button.copy(
-        letterSpacing = 0.75.sp,
-        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+        fontSize = 13.sp,
+        letterSpacing = 0.25.sp,
+        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
         textAlign = TextAlign.Center
     )
-    Text(text = text, style = style)
+    Text(text = text, style = style, maxLines = 1)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
