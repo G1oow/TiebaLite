@@ -1906,9 +1906,12 @@ fun PostCard(
                 }
             }
         ) {
-            Card(
-                header = {
-                    if (!immersiveMode) {
+            // 外层 ThreadFloorSurface 已统一负责卡片内外边距，此处去掉 Card 自带的 16dp 水平/垂直 padding 避免双重内缩。
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (!immersiveMode) {
                         UserHeader(
                             avatar = {
                                 Avatar(
@@ -1950,10 +1953,8 @@ fun PostCard(
                                 )
                             }
                         }
-                    }
-                },
-                content = {
-                    Column(
+                }
+                Column(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = paddingModifier
                             .fillMaxWidth()
@@ -2071,8 +2072,7 @@ fun PostCard(
                             }
                         }
                     }
-                }
-            )
+            }
         }
         }
     }

@@ -176,7 +176,7 @@ fun ThreadFloorSurface(
         Column(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = if (isFirstFloor) 8.dp else 11.dp),
+                .padding(horizontal = 16.dp, vertical = if (isFirstFloor) 12.dp else 13.dp),
             content = content,
         )
         if (!isFirstFloor && style == ThreadCommentStyle.CLEAN_STREAM) {
