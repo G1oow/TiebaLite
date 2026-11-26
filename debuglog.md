@@ -844,6 +844,165 @@ adb shell cmd uimode night no;  Start-Sleep -Milliseconds 500
 ---
 
 
+## DBG-015 草稿箱第一条草稿被悬浮顶栏盖住
+
+**状态**：已修复（未提交）
+
+### 现象
+
+草稿箱有两三条草稿时，第一条永远顶在屏幕最上方：吧名/正文被状态栏与标题行切成两半，右侧删除按钮
+只剩一条 12px 的缝可以点；列表再怎么滑，首条也回不到顶栏下方。
+
+### 根因
+
+`ui/page/settings/about/DraftPage.kt` 直接用裸 `androidx.compose.foundation.lazy.LazyColumn`：
+
+```kotlin
+LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp))
+```
+
+`MyScaffold` 的栏是悬浮 overlay，正文铺满整屏（AGENTS.md §5.3），顶部避让只能靠
+`LocalBarsContentPadding` → 列表的 `contentPadding`（见 `MyLazyColumn`）。裸 `LazyColumn` 不读这个占位，
+`Modifier.padding` 又只是缩视口——8dp 就是全部留白，首条必然落在顶栏底下。与 DBG-009（日志页）同一类问题。
+
+### 修复
+
+换成 `MyLazyColumn`（`ui/widgets/compose/LazyLists.kt`，内部把外层/本层栏高合并进 `contentPadding`）：
+水平 16dp 仍用 `Modifier.padding`（不影响纵向避让），垂直 8dp 改走 `contentPadding`。
+空态（「暂无草稿」居中 `Column`）不装列表，不需要改。
+
+### 验证
+
+设备 `emulator-5554`（1080×2400 @420dpi），草稿 2 条（`csgo` / `抗压背锅`），`uiautomator dump` 取 bounds。
+「修复前」用临时 `MyLazyColumn(..., avoidTopBar = false)` 复现旧行为（此时顶栏占位被跳过，与裸 `LazyColumn` 等价），
+量完立即改回。
+
+| 节点 | 修复前 | 修复后 |
+|---|---|---|
+| 首条正文 `csgo` | `[84,74][162,117]` | `[84,339][162,382]` |
+| 首条删除按钮 | `[902,106][965,118]`（只剩 12px） | `[902,371][965,434]`（完整 63px） |
+| 第二条正文 `抗压背锅` | `[84,330][228,382]` | `[84,595][228,647]` |
+
+顶栏标题「草稿箱」`[461,154][619,229]`，顶栏整块占 0..265px（状态栏 118px + 标题行 147px）。
+首条正文上移量 339 − 74 = **265px**，正好等于顶栏高度——即内容已完整退到顶栏下方。
+`compileDebugKotlin` / `installDebug` → `BUILD SUCCESSFUL`，`logcat -b crash` 全程为空。
+
+### 涉及文件
+
+`ui/page/settings/about/DraftPage.kt`。
+
+### 遗留
+
+- 页面内文案（「草稿箱」「暂无草稿」「已删除」「删除失败」…）仍是硬编码，未资源化（不在本次范围）。
+- 只验证了有草稿的情形；1 条草稿时的底栏避让没有单独量。
+
+## DBG-016 发版后旧版本用户启动时没有更新弹窗
+
+**状态**：已修复（未提交）
+
+### 现象
+
+5.1.3 发布后，仍装 5.1.2 的用户启动应用完全看不到「发现新版本」提示；关于页手动检查却正常。
+
+### 复现
+
+AVD 上把 `application.properties` 临时改成 `versionName=5.1.2` / `versionCode=501004`
+（编号抬高以便覆盖安装），装包后用真机网络（非 mock）分两组启动：
+
+| 组 | 预置条件 | 结果 |
+|---|---|---|
+| A | `update_last_check_time` = 5 分钟前 | **无弹窗**（连检查都没发） |
+| B | 删掉 `update_last_check_time` | **弹窗正常**：发现新版本 / v5.1.3 / 本次忽略 / 立即更新 |
+
+B 组说明网络、版本比对、弹窗渲染都没问题，问题出在「什么情况下才允许检查 / 才继续提示」。
+
+### 根因
+
+三处静默路径，任一命中都表现为「启动不提示」：
+
+1. `UpdateManager.check` 对 `STARTUP` 有 **6 小时节流**（`CHECK_INTERVAL_MS`）：6 小时内成功查过一次，
+   新版本发布后的启动会直接 `return@launch`，连请求都不发。
+2. `UpdateAvailableDialog` 的 `onDismiss` 直接调 `ignoreCurrentVersion()`：弹窗在启动瞬间弹出，
+   用户误触外部或按返回就把**该版本永久静音**（写 `update_ignored_tag`），之后再也不会提示。
+3. 只传了 `cancelable = !force`（管返回键），`cancelableOnTouchOutside` 仍是默认 `true`：
+   **强更弹窗也能点外部关掉**。
+
+### 修复
+
+- 节流 `6h → 2min`（`STARTUP_CHECK_MIN_INTERVAL_MS`）：只用来挡同一会话里的重复触发
+  （Activity 重建、切换主题重组），冷启动每次都真正检查。请求带 ETag，304 不计入 GitHub 匿名限额。
+- 关弹窗不再等于忽略：`onDismiss = null`，只有「本次忽略」按钮写 `update_ignored_tag`。
+- 补 `cancelableOnTouchOutside = !force`，强更点外部也关不掉。
+
+### 验证
+
+设备 `emulator-5554`，debug 包报告 `versionName=5.1.2`，真实网络：
+
+| 步骤 | 结果 |
+|---|---|
+| `update_last_check_time` = 5 分钟前 → 启动 | 弹窗出现（修复前同条件下无弹窗） |
+| 按返回关闭弹窗 | 关闭；`update_ignored_tag` 仍是 `v9.9.9`（未被写成 v5.1.3） |
+| 关闭后再启动 | 弹窗再次出现（不再被永久静默） |
+
+`logcat -b crash` 全程为空；`BUILD SUCCESSFUL`。
+
+### 涉及文件
+
+`update/UpdateManager.kt`、`update/UpdateDialog.kt`。
+
+### 遗留
+
+- 启动检查失败仍保持静默（不打扰用户），因此「网络不通」在用户侧依旧表现为不提示；
+  这次只修掉了「明明能查却不查 / 关掉就再也不提示」。
+- 只在 AVD + 宿主机网络下验证，未覆盖国内网络访问 `api.github.com` 失败的情形。
+
+---
+
+## DBG-017 纯黑主题下悬浮底栏外圈有一条亮描边
+
+**状态**：已修复（未提交）
+
+### 现象
+
+纯黑（AMOLED）主题下，胶囊底栏四周有一圈很淡但可辨的亮线；页面本身是纯黑，这条线把栏「框」了出来。
+
+### 根因
+
+`FloatingBottomBar` 无条件画 1dp 描边（深色主题 8%~12% 白）。纯黑主题页面底色 `#000000`、
+胶囊底色 `#171717`，这条描边落在胶囊边缘就成了一圈亮线。灰暗主题（`grey_dark`）里页面与胶囊都是灰面，
+描边是需要的，不能一刀切去掉。
+
+### 修复
+
+- `FloatingBars.kt` 新增 `rememberPureBlackTheme()`：`theme == amoled_dark` 或 `background == Color.Black`
+  （后者兜住「动态取色」路径——那条路径下 `theme` 会变成 `dynamic`）。
+- `floatingBarBorderColor(..., pureBlack)` 纯黑时返回 `Color.Transparent`；
+  `FloatingBottomBar` 见到透明色就不再叠 `Modifier.border`，少画一层。
+
+### 验证
+
+设备 `emulator-5554`（1080×2400 @420dpi），取底栏左边缘 `(42,2226)` 与胶囊中部 `(540,2226)`：
+
+| 主题 | 边缘 `(42,2226)` | 胶囊 `(540,2226)` | 结论 |
+|---|---|---|---|
+| 纯黑 `amoled_dark`（修复后） | `#171717` | `#171717` | 边缘与胶囊同色，无描边 |
+| 纯黑（修复前） | `#292929` | `#171717` | 边缘偏亮 = 那条线 |
+| 深邃灰 `grey_dark`（未受影响） | `#404040` | `#303030` | 边缘仍亮一档，描边保留 |
+
+`BUILD SUCCESSFUL`，`logcat -b crash` 为空。
+
+### 涉及文件
+
+`ui/widgets/compose/FloatingBars.kt`。
+
+### 遗留
+
+- 只处理了胶囊外描边；样式 A 的**选中滑块**仍有 1dp 主色描边（当作「当前在哪」的强调），
+  若纯黑也要求去掉，需要再确认。
+- 顶栏不在本次范围。
+
+---
+
 ## 附录 A：调试环境与手法
 
 这几轮踩过的坑，复用时按此执行可少走弯路。
