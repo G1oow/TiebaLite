@@ -586,11 +586,12 @@ class MainActivityV2 : BaseComposeActivity() {
                         sheetBackgroundColor = ExtendedTheme.colors.windowBackground,
                         scrimColor = Color.Black.copy(alpha = 0.32f),
                     ) {
-                        // 页面路由转场：先快后慢减速曲线（EaseOutQuart）+ 25% 视差层叠 + 轻微透明度过渡，
-                        // 替代整屏等距低刚度弹簧，消除起手拖沓与生硬推挤感。
+                        // 页面路由转场：全站页面使用 TranslucentThemeBackground + 透明 Scaffold，
+                        // 两页重叠会直接透出前一页内容，因此必须采用严丝合缝的整屏并排滑入/滑出（0 重叠），
+                        // 配合与底栏一致的先快后慢减速曲线（EaseOutQuart）保证利落跟手。
                         val pageEasing = remember { CubicBezierEasing(0.25f, 1f, 0.5f, 1f) }
-                        val enterDurationMs = 340
-                        val popDurationMs = 300
+                        val enterDurationMs = 320
+                        val popDurationMs = 280
                         NavHost(
                             navController = navController,
                             startDestination = Routes.MAIN,
@@ -598,40 +599,24 @@ class MainActivityV2 : BaseComposeActivity() {
                                 slideIntoContainer(
                                     towards = AnimatedContentTransitionScope.SlideDirection.Start,
                                     animationSpec = tween(durationMillis = enterDurationMs, easing = pageEasing),
-                                    initialOffset = { it }
-                                ) + fadeIn(
-                                    animationSpec = tween(durationMillis = 180, easing = pageEasing),
-                                    initialAlpha = 0.85f
                                 )
                             },
                             exitTransition = {
                                 slideOutOfContainer(
                                     towards = AnimatedContentTransitionScope.SlideDirection.Start,
                                     animationSpec = tween(durationMillis = enterDurationMs, easing = pageEasing),
-                                    targetOffset = { it / 4 }
-                                ) + fadeOut(
-                                    animationSpec = tween(durationMillis = enterDurationMs, easing = pageEasing),
-                                    targetAlpha = 0.85f
                                 )
                             },
                             popEnterTransition = {
                                 slideIntoContainer(
                                     towards = AnimatedContentTransitionScope.SlideDirection.End,
                                     animationSpec = tween(durationMillis = popDurationMs, easing = pageEasing),
-                                    initialOffset = { it / 4 }
-                                ) + fadeIn(
-                                    animationSpec = tween(durationMillis = popDurationMs, easing = pageEasing),
-                                    initialAlpha = 0.85f
                                 )
                             },
                             popExitTransition = {
                                 slideOutOfContainer(
                                     towards = AnimatedContentTransitionScope.SlideDirection.End,
                                     animationSpec = tween(durationMillis = popDurationMs, easing = pageEasing),
-                                    targetOffset = { it }
-                                ) + fadeOut(
-                                    animationSpec = tween(durationMillis = popDurationMs, easing = pageEasing),
-                                    targetAlpha = 0.9f
                                 )
                             }
                         ) {
