@@ -8,13 +8,13 @@ import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Card
@@ -41,6 +41,7 @@ import com.huanchengfly.tieba.post.R
 import com.huanchengfly.tieba.post.models.database.Draft
 import com.huanchengfly.tieba.post.toastShort
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
+import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import com.huanchengfly.tieba.post.ui.widgets.compose.TitleCentredToolbar
 import com.huanchengfly.tieba.post.utils.DateTimeUtils
@@ -94,10 +95,13 @@ fun DraftPage(
                 )
             }
         } else {
-            LazyColumn(
+            // 栏是悬浮 overlay（AGENTS.md §5.3）：正文铺满整屏，顶部/底部避让只能走 contentPadding，
+            // 用 Modifier.padding 缩视口会让首条草稿永远压在顶栏底下（DBG-015）。
+            MyLazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
             ) {
                 items(drafts, key = { it.hash ?: it.hashCode().toString() }) { draft ->
                     DraftItem(
