@@ -567,4 +567,21 @@
     <string name="title_no_log">暂无日志</string>
     <string name="button_view_log">查看日志</string>
     <string name="title_view_profile">查看个人主页</string>
+    <string name="title_refresh_rate">屏幕刷新率</string>
+    <string name="summary_refresh_rate">自适应或锁定设备支持的刷新率档位</string>
+    <string name="entry_refresh_rate_auto">跟随系统（自适应）</string>
+    <string name="entry_refresh_rate_max">最高刷新率（%d Hz）</string>
+    <string name="title_max_concurrent_requests">最大并发请求数</string>
+    <string name="summary_max_concurrent_requests">控制接口与图片加载的全局最大并发连接数</string>
+    <string name="title_max_concurrent_requests_per_host">单域名最大并发数</string>
+    <string name="summary_max_concurrent_requests_per_host">调高可明显加快贴吧图片与头像同时加载速度</string>
+    <string name="title_network_timeout">网络请求超时</string>
+    <string name="summary_network_timeout">缩短可更快脱离弱网卡顿，切换后立即生效</string>
+    <string name="entry_concurrent_requests_count">%d 个并发</string>
+    <string name="entry_concurrent_requests_recommended">%d 个并发（推荐）</string>
+    <string name="entry_concurrent_per_host_conservative">%d 个并发（省流保守）</string>
+    <string name="entry_network_timeout_seconds">%d 秒</string>
+    <string name="entry_network_timeout_recommended">%d 秒（推荐）</string>
+    <string name="title_concern_empty">暂无关注动态</string>
+    <string name="summary_concern_empty">关注感兴趣的用户后，TA 们的动态会显示在这里</string>
 </resources>

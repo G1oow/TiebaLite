@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.flatMapConcat
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
@@ -83,9 +84,9 @@ private class ForumThreadListPartialChangeProducer(val type: ForumThreadListType
     override fun toPartialChangeFlow(intentFlow: Flow<ForumThreadListUiIntent>): Flow<ForumThreadListPartialChange> =
         merge(
             intentFlow.filterIsInstance<ForumThreadListUiIntent.FirstLoad>()
-                .flatMapConcat { it.producePartialChange() },
+                .flatMapLatest { it.producePartialChange() },
             intentFlow.filterIsInstance<ForumThreadListUiIntent.Refresh>()
-                .flatMapConcat { it.producePartialChange() },
+                .flatMapLatest { it.producePartialChange() },
             intentFlow.filterIsInstance<ForumThreadListUiIntent.LoadMore>()
                 .flatMapConcat { it.producePartialChange() },
             intentFlow.filterIsInstance<ForumThreadListUiIntent.Agree>()

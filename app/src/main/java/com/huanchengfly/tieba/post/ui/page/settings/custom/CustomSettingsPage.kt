@@ -17,6 +17,7 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FontDownload
 import androidx.compose.material.icons.outlined.FormatColorFill
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Upcoming
 import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material.icons.outlined.Visibility
@@ -53,6 +54,7 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
 import com.huanchengfly.tieba.post.ui.widgets.compose.TitleCentredToolbar
 import com.huanchengfly.tieba.post.utils.AppIconUtil
 import com.huanchengfly.tieba.post.utils.LauncherIcons
+import com.huanchengfly.tieba.post.utils.RefreshRateUtil
 import com.huanchengfly.tieba.post.utils.ThemeUtil
 import androidx.navigation.NavHostController
 import kotlinx.collections.immutable.persistentListOf
@@ -390,6 +392,42 @@ fun CustomSettingsPage(
                         "minimal" to stringResource(id = R.string.entry_feed_card_style_minimal),
                         "classic" to stringResource(id = R.string.entry_feed_card_style_classic),
                     ),
+                )
+            }
+            prefsItem {
+                // 屏幕刷新率：动态探测当前屏幕在同一物理分辨率下支持的全部档位，
+                // 切换后由 BaseComposeActivity 实时提交给 WindowManager 生效（无需重启）。
+                val supportedRates = remember(context) {
+                    RefreshRateUtil.getSupportedRefreshRates(context)
+                }
+                val maxRate = supportedRates.maxOrNull() ?: 60
+                val autoLabel = stringResource(id = R.string.entry_refresh_rate_auto)
+                val maxLabel = stringResource(id = R.string.entry_refresh_rate_max, maxRate)
+                val entries = remember(supportedRates, autoLabel, maxLabel) {
+                    buildMap {
+                        put(RefreshRateUtil.MODE_AUTO, autoLabel)
+                        put(RefreshRateUtil.MODE_MAX, maxLabel)
+                        supportedRates.forEach { hz ->
+                            put(hz.toString(), "$hz Hz")
+                        }
+                    }
+                }
+                ListPref(
+                    key = RefreshRateUtil.PREF_KEY_REFRESH_RATE,
+                    title = stringResource(id = R.string.title_refresh_rate),
+                    summary = stringResource(id = R.string.summary_refresh_rate),
+                    defaultValue = RefreshRateUtil.MODE_AUTO,
+                    useSelectedAsSummary = true,
+                    leadingIcon = {
+                        LeadingIcon {
+                            AvatarIcon(
+                                icon = Icons.Outlined.Speed,
+                                size = Sizes.Small,
+                                contentDescription = null,
+                            )
+                        }
+                    },
+                    entries = entries,
                 )
             }
             prefsItem {

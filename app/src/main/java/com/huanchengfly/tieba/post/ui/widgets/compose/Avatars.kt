@@ -4,6 +4,8 @@ import android.graphics.drawable.Drawable
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -11,6 +13,7 @@ import androidx.compose.material.Icon
 import androidx.compose.material.LocalContentAlpha
 import androidx.compose.material.LocalContentColor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -125,16 +128,65 @@ fun Avatar(
     shape: Shape = CircleShape,
 ) {
     val context = LocalContext.current
-
-    AsyncImage(
-        request = DisplayRequest(LocalContext.current, data) {
+    val request = remember(context, data) {
+        DisplayRequest(context, data) {
             placeholder(ImageUtil.getPlaceHolder(context, 0))
             crossfade()
-        },
+        }
+    }
+
+    AsyncImage(
+        request = request,
         contentDescription = contentDescription,
         contentScale = ContentScale.Crop,
         modifier = modifier.clip(shape),
     )
+}
+
+/**
+ * 渐进式大图头像：先用全站已缓存的普通头像 [previewData] 0ms 瞬显垫底，
+ * 再在上层无缝叠加高清大图 [data]，避免个人主页等大尺寸头像先出现灰圆等待。
+ */
+@Composable
+fun AvatarWithPreview(
+    data: String?,
+    previewData: String?,
+    size: Dp,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    shape: Shape = CircleShape,
+) {
+    val context = LocalContext.current
+    val previewRequest = remember(context, previewData) {
+        DisplayRequest(context, previewData) {
+            placeholder(ImageUtil.getPlaceHolder(context, 0))
+        }
+    }
+    val fullRequest = remember(context, data) {
+        DisplayRequest(context, data) {
+            crossfade(120)
+        }
+    }
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(shape)
+    ) {
+        if (!previewData.isNullOrBlank()) {
+            AsyncImage(
+                request = previewRequest,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        AsyncImage(
+            request = fullRequest,
+            contentDescription = contentDescription,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
 }
 
 @Composable
@@ -145,12 +197,15 @@ fun Avatar(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-
-    AsyncImage(
-        request = DisplayRequest(LocalContext.current, newResourceUri(data)) {
+    val request = remember(context, data) {
+        DisplayRequest(context, newResourceUri(data)) {
             placeholder(ImageUtil.getPlaceHolder(context, 0))
             crossfade()
-        },
+        }
+    }
+
+    AsyncImage(
+        request = request,
         contentDescription = contentDescription,
         contentScale = ContentScale.Crop,
         modifier = modifier

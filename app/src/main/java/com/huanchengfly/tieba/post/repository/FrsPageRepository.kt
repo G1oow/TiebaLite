@@ -32,22 +32,21 @@ object FrsPageRepository {
             return flowOf(lastResponse!!)
         }
         lastHash = hash
-        val cacheKey = "frs_$hash"
         return TiebaApi.getInstance().frsPage(forumName, page, loadType, sortType, goodClassifyId)
             .map { response ->
                 if (response.data_ == null) throw TiebaUnknownException
-                val userList = response.data_.user_list
+                val userMap = response.data_.user_list.associateBy { it.id }
+                val blockVideo = App.INSTANCE.appPreferences.blockVideo
                 val threadList = response.data_.thread_list
-                    .map { threadInfo ->
-                        threadInfo.copy(author = userList.find { it.id == threadInfo.authorId })
+                    .mapNotNull { threadInfo ->
+                        if (threadInfo.ala_info != null) return@mapNotNull null
+                        if (blockVideo && threadInfo.videoInfo != null) return@mapNotNull null
+                        threadInfo.copy(author = userMap[threadInfo.authorId])
                     }
-                    .filter { !App.INSTANCE.appPreferences.blockVideo || it.videoInfo == null }
-                    .filter { it.ala_info == null } // 去他妈的直播
                 response.copy(data_ = response.data_.copy(thread_list = threadList))
             }
             .onEach { response ->
                 lastResponse = response
-                AppCache.put(App.INSTANCE, cacheKey, response.toString())
             }
             .catch {
                 lastResponse?.let { emit(it) } ?: throw it
@@ -65,13 +64,14 @@ object FrsPageRepository {
             .threadList(forumId, forumName, page, sortType, threadIds)
             .map { response ->
                 if (response.data_ == null) throw TiebaUnknownException
-                val userList = response.data_.user_list
+                val userMap = response.data_.user_list.associateBy { it.id }
+                val blockVideo = App.INSTANCE.appPreferences.blockVideo
                 val threadList = response.data_.thread_list
-                    .map { threadInfo ->
-                        threadInfo.copy(author = userList.find { it.id == threadInfo.authorId })
+                    .mapNotNull { threadInfo ->
+                        if (threadInfo.ala_info != null) return@mapNotNull null
+                        if (blockVideo && threadInfo.videoInfo != null) return@mapNotNull null
+                        threadInfo.copy(author = userMap[threadInfo.authorId])
                     }
-                    .filter { !App.INSTANCE.appPreferences.blockVideo || it.videoInfo == null }
-                    .filter { it.ala_info == null } // 去他妈的直播
                 response.copy(data_ = response.data_.copy(thread_list = threadList))
             }
 }
