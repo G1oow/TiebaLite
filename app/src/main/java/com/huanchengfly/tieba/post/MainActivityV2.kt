@@ -11,8 +11,6 @@ import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -57,6 +55,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.flowWithLifecycle
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -153,6 +152,7 @@ import com.huanchengfly.tieba.post.utils.requestPermission
 import com.microsoft.appcenter.analytics.Analytics
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -191,7 +191,6 @@ fun rememberBottomSheetNavigator(
 
 @AndroidEntryPoint
 class MainActivityV2 : BaseComposeActivity() {
-    private val handler = Handler(Looper.getMainLooper())
     private val newMessageReceiver: BroadcastReceiver = NewMessageReceiver()
 
     private val notificationCountFlow: MutableSharedFlow<Int> =
@@ -307,6 +306,13 @@ class MainActivityV2 : BaseComposeActivity() {
         }
     }
 
+    /**
+     * 通知权限请求的延后时长。
+     *
+     * 放在 onStart 之后一小段再请求，是为了不打断首帧；取值沿用改造前 `handler.postDelayed(..., 100)`。
+     */
+    private val NotificationPermissionRequestDelay = 100L
+
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && AccountUtil.isLoggedIn()) {
             requestPermission {
@@ -342,9 +348,16 @@ class MainActivityV2 : BaseComposeActivity() {
             val jobScheduler = getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
             jobScheduler.schedule(builder.build())
         }
-        handler.postDelayed({
-            requestNotificationPermission()
-        }, 100)
+        // 用 lifecycleScope 而不是 handler.postDelayed：Activity 在这 100ms 内被销毁或正在结束时，
+        // 原来的写法会让 XXPermissions 抛
+        // IllegalStateException("The activity has been destroyed / has been finishing")。
+        // 协程随 lifecycle 一起取消，再补一次「当前是否在前台」的判断，避免把请求发到已结束的 Activity 上。
+        lifecycleScope.launch {
+            delay(NotificationPermissionRequestDelay)
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && !isFinishing && !isDestroyed) {
+                requestNotificationPermission()
+            }
+        }
     }
 
     /** debug 构建本地 mock 验收开关（onCreate 从 intent extra 读取，见 onCreate 注释）。 */
