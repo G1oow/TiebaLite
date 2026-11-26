@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -24,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.Icon
+import com.huanchengfly.tieba.post.ui.utils.topBarInsetsPadding
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
@@ -277,7 +277,7 @@ fun UserPage(
     MyScaffold(
         backgroundColor = Color.Transparent,
         modifier = Modifier
-            .statusBarsPadding()
+            .topBarInsetsPadding()
             .fillMaxSize()
     ) { _ ->
         PullRefresh(
