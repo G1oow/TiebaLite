@@ -41,7 +41,7 @@ M2 存量热点（按文件数，`import` 计数）：
 | `IconButton` | 14 | 机械替换 |
 | `ProvideTextStyle` / `LocalContentColor` | 12 / 12 | M3 有对应物；`LocalContentAlpha` 系列 M3 已移除，改显式 alpha |
 | `Surface` | 10 | 注意 `tonalElevation` 会染色，已有 `surfaceTint = Transparent` 兜底 |
-| `Tab` / `TabRow` | 8 | M3 是 `PrimaryTabRow` / `SecondaryTabRow` / `ScrollableTabRow` |
+| `Tab` / `TabRow` | **0** | 阶段 2c 已清空：`Tabs.kt` 改用 M3 `SecondaryTabRow` / `SecondaryScrollableTabRow`，7 个页面改引项目封装 |
 | `TopAppBar` | 1 | 阶段 2b 已清掉主入口的 2 处，只剩 `LogPage.kt` 直接引用，随阶段 5 设置类一起清 |
 | `Scaffold` / `ScaffoldState` | **0** | 阶段 2a 已清空 |
 
@@ -109,9 +109,30 @@ M2 存量热点（按文件数，`import` 计数）：
 
 ## 3. 待做阶段
 
-### 阶段 2c — `Tabs.kt`
+### 阶段 2c — `Tabs.kt`（已完成，未提交）
 
-`Tab` / `TabRow` / `ScrollableTabRow` → M3 `PrimaryTabRow` / `SecondaryTabRow` / `ScrollableTabRow`；`TabRowDefaults.tabIndicatorOffset`（M3 已废弃）改 `SecondaryIndicator`。影响主界面「推荐/热榜」与吧页分类页签。
+`Tabs.kt` 从「照抄 M2 `TabRow` / `ScrollableTabRow` + 自定义 `TabPosition`」改为 M3 `SecondaryTabRow` /
+`SecondaryScrollableTabRow` 的薄封装；`Tab` 用 M3 版并保留未选中色算法；`PagerTabIndicator` 改成 M3 真正在用的
+`TabIndicatorScope` 扩展，位置挪到放置阶段计算。8 个 `indicator = { tabPositions -> … }` 调用点随之改成
+`indicator = { PagerTabIndicator(pagerState) }`，7 个页面的 `Tab` 改引项目封装。
+
+| 文件 | 变化 |
+|---|---|
+| `ui/widgets/compose/Tabs.kt` | 555 → 358 行；删掉 M2 `Surface`/`SubcomposeLayout` 自绘、`TabPosition`、`Modifier.tabIndicatorOffset`、`TabIndicator`、`ScrollableTabData` |
+| 同上 | **迁移期桥接**：M3 `Tab` 只按选中态插值 M3 的 `LocalContentColor`，页面传入的 M2 `Text` / `Icon` 读不到，故在 `Tab` 内容与页签槽里把颜色 / 透明度回写给 M2（做法同 `Toolbar.kt` 的 `ProvideTopBarTitleStyle`） |
+| 同上 | 未选中色仍取「选中色 × M2 `ContentAlpha.medium`」：该系数（浅色 0.60 / 深色 0.74）无 M3 对位物，随阶段 2e 一起处理 |
+| 同上 | `SecondaryScrollableTabRow` 显式 `minTabWidth = 0.dp`：M3 默认每签 ≥ 90dp，本工程是按文字宽度紧排 |
+| 同上 | 指示器位置改在 `tabIndicatorLayout` 的放置阶段算，不再「组合里读 `currentPageOffsetFraction` + `animateDpAsState` + `Modifier.offset`」，也不再叠一层会滞后于手指的弹簧动画 |
+| 7 个页面 | `androidx.compose.material.Tab` → `com.huanchengfly.tieba.post.ui.widgets.compose.Tab`（Explore / Notifications / History / BlockList / Forum / Search / UserProfile） |
+
+门禁 2（观感不变）的证据：`emulator-5554`、竖屏 Compact，浅色与深色各跑一遍同一套脚本，覆盖 10 个页签视图
+（动态 3 签 × 2 状态、消息 2 处、浏览记录 × 2、个人主页、屏蔽词管理、吧页、搜索结果）——
+**全部页签文字节点 bounds 逐行一致**；再对页签文字框做像素直方图，选中 / 未选中色的前三高频色在改动前后完全相同
+（浅色 `666666` / `000000`，深色 `8F8F8F` / `EEEEEE`；历史页另有一组 `6B6F7B`）。点击「精华」页签可正常切到精华列表并互换选中色。
+
+> 说明：`Tabs.kt` 不在 AGENTS.md §3.2 列出的复用组件里，但它是 7 个页面共用的页签栏实现，属于阶段 2c 的既定范围。
+> `PrimaryTabRow` 的 `PrimaryIndicator` 宽度按内容测量，与现有 16dp 短横条不符，且 M3 把 `Primary*` 标注为实验 API，
+> 因此选 `Secondary*`（`SecondaryIndicator` 宽度由外部 Modifier 决定，可继续画 16dp）。
 
 ### 阶段 2d — 基础件：`Dialogs.kt` / `Texts.kt` / `Buttons.kt` / `FeedCard.kt`
 
@@ -187,7 +208,7 @@ M2 存量热点（按文件数，`import` 计数）：
 - [x] 阶段 1 — M3 主题桥接（`7883d9af`）
 - [x] 阶段 2a — `MyScaffold`（`601e5c8a`）
 - [x] 阶段 2b — `Toolbar.kt`（`fb07d191`）
-- [ ] 阶段 2c — `Tabs.kt`
+- [x] 阶段 2c — `Tabs.kt`（M3 `SecondaryTabRow` / `SecondaryScrollableTabRow` + 桥接；10 个页签视图浅色 / 深色前后一致）
 - [ ] 阶段 2d — `Dialogs` / `Texts` / `Buttons` / `FeedCard`
 - [ ] 阶段 2e — 其它 M2 小件
 - [x] 阶段 3a — 下拉刷新统一（`PullRefresh` + M3 `PullToRefreshBox`，17 个调用点；下拉指示器移入栏下沿）
