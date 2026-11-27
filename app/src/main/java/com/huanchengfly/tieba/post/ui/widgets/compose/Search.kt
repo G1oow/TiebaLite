@@ -42,6 +42,7 @@ import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -52,12 +53,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
+import androidx.compose.ui.zIndex
 import com.huanchengfly.tieba.post.R
 import com.huanchengfly.tieba.post.api.models.SearchThreadBean
 import com.huanchengfly.tieba.post.arch.BaseComposeActivity
 import com.huanchengfly.tieba.post.ui.common.PbContentText
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.common.windowsizeclass.WindowWidthSizeClass
+import com.huanchengfly.tieba.post.ui.utils.topBarInsetsHeight
 import com.huanchengfly.tieba.post.utils.DateTimeUtils
 import com.huanchengfly.tieba.post.utils.StringUtil
 import com.huanchengfly.tieba.post.utils.StringUtil.buildAnnotatedStringWithUser
@@ -170,7 +173,7 @@ fun SearchThreadList(
         header()
         itemsIndexed(data) { index, item ->
             if (index > 0) {
-                VerticalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                FeedListDivider(modifier = Modifier.padding(horizontal = 16.dp))
             }
             SearchThreadItem(
                 item = item,
@@ -233,16 +236,37 @@ fun SearchThreadItem(
     hideForum: Boolean = false,
     searchKeyword: String? = null,
 ) {
-    Card(
+    val style = rememberFeedCardStyle()
+    val replyNum = remember(item.postNum) { item.postNum.toIntOrNull() ?: 0 }
+    val agreeNum = remember(item.likeNum) { item.likeNum.toIntOrNull() ?: 0 }
+    val shareNum = remember(item.shareNum) { item.shareNum.toLongOrNull() ?: 0L }
+    val forumName = if (!hideForum && item.forumName.isNotEmpty()) item.forumName else null
+    val forumAvatar = if (!hideForum) item.forumInfo.avatar.takeIf { it.isNotBlank() } else null
+    StyledFeedCardBody(
+        style = style,
+        authorPortrait = item.user.portrait,
+        authorName = item.user.userName.orEmpty(),
+        authorNameShow = item.user.showNickname.orEmpty(),
+        timeString = item.time,
+        forumName = forumName,
+        forumAvatar = forumAvatar,
+        replyNum = replyNum,
+        agreeNum = agreeNum,
+        hasAgree = false,
+        onClick = { onClick(item) },
+        onClickReply = { onClick(item) },
+        onAgree = {},
+        onClickUser = { onUserClick(item.user) },
+        onClickForum = { onForumClick(item.forumInfo) },
         modifier = modifier,
-        header = {
+        classicHeader = {
             SearchThreadUserHeader(
                 user = item.user,
                 time = item.time,
                 onClick = { onUserClick(item.user) }
             )
         },
-        content = {
+        contentBlock = {
             ThreadContent(
                 title = item.title,
                 abstractText = item.content,
@@ -284,38 +308,29 @@ fun SearchThreadItem(
             } else {
                 SearchMedia(medias = item.media.toImmutableList())
             }
-            if (!hideForum && item.forumName.isNotEmpty()) {
-                ForumInfoChip(
-                    imageUriProvider = { item.forumInfo.avatar },
-                    nameProvider = { item.forumName }
-                ) {
-                    onForumClick(item.forumInfo)
-                }
-            }
         },
-        action = {
+        classicAction = {
             Row(modifier = Modifier.fillMaxWidth()) {
                 ThreadReplyBtn(
-                    replyNum = item.postNum.toInt(),
+                    replyNum = replyNum,
                     onClick = {},
                     modifier = Modifier.weight(1f)
                 )
 
                 ThreadAgreeBtn(
                     hasAgree = false,
-                    agreeNum = item.likeNum.toInt(),
+                    agreeNum = agreeNum,
                     onClick = {},
                     modifier = Modifier.weight(1f)
                 )
 
                 ThreadShareBtn(
-                    shareNum = item.shareNum.toLong(),
+                    shareNum = shareNum,
                     onClick = {},
                     modifier = Modifier.weight(1f)
                 )
             }
         },
-        onClick = { onClick(item) },
     )
 }
 
@@ -487,4 +502,50 @@ fun SearchBox(
             }
         }
     }
+}
+
+/**
+ * 搜索列表吸顶分组条（精准匹配 / 相关吧 / 相关用户）与悬浮顶栏的绘制层联动：
+ * - 不在布局里额外加 `topBarInsetsHeight()`，确保列表位于顶部时紧贴页签栏下沿；
+ * - 吸顶后随顶栏展开比例在顶栏下沿与状态栏下沿之间平滑过渡，不改变布局高度（AGENTS.md §6.3）；
+ * - 当下一分组条（[nextHeaderKey]）顶上来时平滑向上让位并淡出，避免两级吸顶条重叠或滞留状态栏区。
+ */
+@Composable
+fun Modifier.searchStickyHeaderFollowTopBar(
+    lazyListState: LazyListState,
+    headerKey: Any,
+    nextHeaderKey: Any? = null,
+): Modifier {
+    val barsAutoHideState = LocalBarsAutoHideState.current
+    val topBarHeight = LocalTopBarHeight.current
+    val statusBarInset = topBarInsetsHeight()
+    return this
+        .zIndex(1f)
+        .graphicsLayer {
+            val layoutInfo = lazyListState.layoutInfo
+            val headerInfo = layoutInfo.visibleItemsInfo
+                .firstOrNull { it.key == headerKey }
+                ?: return@graphicsLayer
+            val naturalTop = (headerInfo.offset - layoutInfo.viewportStartOffset).coerceAtLeast(0)
+            val shownFraction = 1f - (barsAutoHideState?.hiddenFraction ?: 0f)
+            val targetTop = statusBarInset.toPx() +
+                (topBarHeight - statusBarInset).coerceAtLeast(0.dp).toPx() * shownFraction
+            val pinnedY = maxOf(naturalTop.toFloat(), targetTop)
+            val nextHeaderTop = nextHeaderKey?.let { nextKey ->
+                layoutInfo.visibleItemsInfo
+                    .firstOrNull { it.key == nextKey }
+                    ?.let { (it.offset - layoutInfo.viewportStartOffset).toFloat() }
+            }
+            val pushedY = if (nextHeaderTop != null && size.height > 0f) {
+                minOf(pinnedY, nextHeaderTop - size.height)
+            } else {
+                pinnedY
+            }
+            translationY = pushedY - naturalTop
+            alpha = if (size.height > 0f && pushedY < targetTop) {
+                ((pushedY + size.height - targetTop) / size.height).coerceIn(0f, 1f)
+            } else {
+                1f
+            }
+        }
 }

@@ -69,6 +69,7 @@
 | [DBG-025](#dbg-025-0-关注时关注页正文全空无任何提示) | 2026-11-26 | 用户 0 关注时进入「动态 → 关注」，正文区完全空白 | 已修复（`18f61267`） |
 | [DBG-026](#dbg-026-动态页切换关注推荐热榜时页面与页签胶囊上下跳动) | 2026-11-26 | 「动态」页在「关注 / 推荐 / 热榜」间切换时，页签胶囊与页面正文上下跳动重新定位 | 已修复（`92e4a73e`） |
 | [DBG-027](#dbg-027-帖子详情评论与楼中楼左右边距双重叠加过宽) | 2026-11-26 | 帖子详情页中主贴、评论与楼中楼离屏幕左右边界过远、明显偏中心 | 已修复（`e743ab61`） |
+| [DBG-028](#dbg-028-搜索页顶栏遮挡页签不居中帖子卡片未走样式及搜吧分组条多余空隙) | 2026-11-26 | 搜索页历史/联想被顶栏遮挡、「搜贴」页签不居中、搜贴卡片未应用卡片样式、搜吧「相关吧」与页签间多出空隙 | 已修复（未提交） |
 
 ---
 
@@ -1478,6 +1479,59 @@ B 组说明网络、版本比对、弹窗渲染都没问题，问题出在「什
 
 ---
 
+## DBG-028 搜索页顶栏遮挡、页签不居中、帖子卡片未走样式及搜吧分组条多余空隙
+
+**状态**：已修复（未提交）
+
+### 现象
+
+1. 「搜索」页的历史记录与联想列表上半部分被悬浮顶栏遮挡。
+2. 搜索后「搜吧 / 搜贴 / 搜人」胶囊页签中，「搜贴」文字偏左不居中，且下拉筛选挤在胶囊内观感不佳。
+3. 搜索结果「搜贴」列表仍显示旧版默认通栏卡片，未随全局「帖子卡片样式」（柔和浮卡 / 色调胶囊卡 / 极简通栏流 / 原版样式）变化。
+4. 「搜吧」（及「搜人」）结果页的「精准匹配 / 相关吧」分组条没有紧贴页签栏，中间多出约 45dp 空白。
+
+### 复现
+
+进入「搜索」页观察历史记录与输入联想；搜索 `csgo` 或无精确匹配词 `tieba123`，依次查看「搜吧」「搜贴」「搜人」三页及排序弹窗。
+
+### 定位
+
+1. `SearchPage.kt` 的 `MyScaffold` 采用悬浮 overlay 顶栏，但历史页 `Column(verticalScroll(...))` 未消费 `paddingValues`，联想列表 `SearchSuggestionList` 使用原生 `LazyColumn` 未避让 `LocalBarsContentPadding`。
+2. `SegmentedTabClickMenu` 外层 `ClickMenu` 的 `Box` 未传播最小约束（`propagateMinConstraints = false`），导致等宽页签的 `Constraints.fixed` 丢失且右侧箭头使文字不对称；用户进一步要求将「搜贴」排序筛选移出页签胶囊。
+3. `Search.kt` 的 `SearchThreadList` / `SearchThreadItem` 硬编码 `VerticalDivider` 与老版 `Card(...)`，未接入 `FeedCardStyle`（`StyledFeedCardBody` / `FeedListDivider`）。
+4. `SearchForumPage.kt` 与 `SearchUserPage.kt` 的 `MyLazyColumn` 已按完整顶栏高度设置 `contentPadding.top`，但 `stickyHeader` 内部又叠加 `.padding(top = topBarInsetsHeight())`，造成顶部静止时多出 1 个状态栏高度（45dp / 118px）空白。
+
+### 修复
+
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/page/search/SearchPage.kt`：
+  - 搜索历史 `Column` 在 `verticalScroll` 之后应用 `.padding(paddingValues)`，`SearchSuggestionList` 改为 `MyLazyColumn(Modifier.fillMaxSize())`，并在回到空关键词时复位 `LocalBarsAutoHideState`。
+  - `SearchTabRow` 固定 50dp 高度；三个页签统一使用纯文字 `SegmentedTab`，将「搜贴」排序筛选移至页签行最左侧独立 `Sort` 图标按钮（仅「搜贴」页显示，点击弹出原 `ListSinglePicker` 排序菜单）。
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/widgets/compose/Menu.kt` & `Tabs.kt`：
+  - 为 `ClickMenu` 补齐可选 `propagateMinConstraints` 参数，`SegmentedTabClickMenu` 开启约束传播并采用左右等宽对称占位（惠及吧内页「最新▾」等调用点）。
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/widgets/compose/FeedCard.kt` & `Search.kt`：
+  - 将 `StyledFeedCardBody` 开放为 `internal`（接受 `timeString: String`），`SearchThreadItem` 与 `SearchThreadList` 接入 `rememberFeedCardStyle()` 与 `FeedListDivider`（同时覆盖全局搜贴与吧内搜贴）。
+- `app/src/main/java/com/huanchengfly/tieba/post/ui/widgets/compose/Search.kt`、`SearchForumPage.kt`、`SearchUserPage.kt`：
+  - 移除 `stickyHeader` 内部的 `.padding(top = topBarInsetsHeight())`，新增 `Modifier.searchStickyHeaderFollowTopBar` 在绘制层随顶栏展开比例平滑定位，且两级吸顶条交接时前一条平滑让位淡出。
+- `app/src/main/res/values/strings.xml`：新增 `desc_search_sort` 无障碍文案。
+
+### 验证
+
+- `:app:assembleDebug` → `BUILD SUCCESSFUL`（`debug-5.1.8(501008).apk`）。
+- `emulator-5554`（Pixel 7a，1080×2400 @420dpi，纯黑主题 + 柔和浮卡样式）实测 UI 树与像素：
+  - **搜索历史 / 联想**：顶栏底边 `y = 286px`；「搜索历史」`[42,328][891,389]`、首条联想 `csgologo` `[42,307][105,370]`，0px 遮挡。
+  - **三页签居中与独立排序按钮**：切换三页期间坐标恒定无跳动——「搜吧」`[318,328][386,377]`、「搜贴」`[507,328][575,377]`（水平间距均精确 `189px`，文字中心 `x = 541px`）、「搜人」`[696,328][764,377]`；仅在「搜贴」页左侧显示排序按钮 `[45,323][103,381]`，点击在左侧正常弹出「新贴在前 / 旧贴在前 / 相关度」菜单。
+  - **搜贴卡片样式**：卡片外边缘 `x = 10` 为 `#000000` 纯黑底，卡片内 `x = 40 / 950` 为 `#0D0D0D` 柔和浮卡底色（`y = 480 / 520 / 600` 采样一致）。
+  - **搜吧 / 搜人分组条**：无精确匹配时「相关吧」位于 `[84,449][177,494]`（有精确匹配时「推荐」同为 `[84,449][146,494]`），紧贴页签栏底边（原多 118px 掉至 `y ≈ 568px`）。
+
+### 涉及文件
+
+`SearchPage.kt`、`SearchForumPage.kt`、`SearchUserPage.kt`、`Search.kt`、`FeedCard.kt`、`Menu.kt`、`Tabs.kt`、`strings.xml`。
+
+### 遗留
+
+无。
+
+---
 ## 附录 A：调试环境与手法
 
 这几轮踩过的坑，复用时按此执行可少走弯路。

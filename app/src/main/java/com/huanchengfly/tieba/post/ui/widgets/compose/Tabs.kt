@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -663,6 +664,7 @@ fun SegmentedTabClickMenu(
         menuState = menuState,
         indication = null,
         triggerShape = SegmentedTrackShape,
+        propagateMinConstraints = true,
     ) {
         SegmentedTab(
             selected = selected,
@@ -683,8 +685,11 @@ fun SegmentedTabClickMenu(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(start = 14.dp, end = 6.dp),
+                modifier = Modifier.padding(horizontal = 6.dp),
             ) {
+                // 左侧与右侧下拉箭头等宽对称占位，保证文字本体在胶囊中严格几何居中，
+                // 未选中时与普通页签同轴对齐，选中时箭头淡入不推动文字。
+                Spacer(modifier = Modifier.width(16.dp))
                 text()
                 Icon(
                     imageVector = Icons.Rounded.ArrowDropDown,
