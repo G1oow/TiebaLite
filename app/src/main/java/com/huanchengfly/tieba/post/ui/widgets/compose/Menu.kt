@@ -55,6 +55,7 @@ fun ClickMenu(
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     indication: Indication? = LocalIndication.current,
     triggerShape: Shape? = null,
+    propagateMinConstraints: Boolean = false,
     onDismiss: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
@@ -68,9 +69,10 @@ fun ClickMenu(
                 }
         }
     }
-    Box {
+    Box(propagateMinConstraints = propagateMinConstraints) {
         val triggerModifier = if (triggerShape != null) Modifier.clip(triggerShape) else Modifier
         Box(
+            propagateMinConstraints = propagateMinConstraints,
             modifier = triggerModifier
                 .combinedClickable(
                     interactionSource = interactionSource,

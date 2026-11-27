@@ -749,12 +749,12 @@ fun ThreadShareBtn(
 }
 
 @Composable
-private fun StyledFeedCardBody(
+internal fun StyledFeedCardBody(
     style: FeedCardStyle,
     authorPortrait: String?,
     authorName: String,
     authorNameShow: String,
-    timeInt: Int,
+    timeString: String,
     forumName: String?,
     forumAvatar: String?,
     replyNum: Int,
@@ -772,8 +772,8 @@ private fun StyledFeedCardBody(
     classicAction: @Composable ColumnScope.() -> Unit,
 ) {
     val context = LocalContext.current
-    val relativeTime = remember(timeInt) {
-        DateTimeUtils.getRelativeTimeString(context, timeInt.toString())
+    val relativeTime = remember(timeString) {
+        DateTimeUtils.getRelativeTimeString(context, timeString)
     }
     val textColor = ExtendedTheme.colors.text
     val authorAnnotated = remember(authorName, authorNameShow, textColor) {
@@ -946,7 +946,7 @@ fun FeedCard(
         authorPortrait = author?.get { portrait },
         authorName = author?.get { name }.orEmpty(),
         authorNameShow = author?.get { nameShow }.orEmpty(),
-        timeInt = item.get { lastTimeInt },
+        timeString = item.get { lastTimeInt }.toString(),
         forumName = forumInfo?.get { name },
         forumAvatar = forumInfo?.get { avatar },
         replyNum = item.get { replyNum },
@@ -1041,7 +1041,7 @@ fun FeedCard(
         authorPortrait = item.get { user_portrait },
         authorName = item.get { user_name },
         authorNameShow = item.get { name_show },
-        timeInt = item.get { create_time },
+        timeString = item.get { create_time }.toString(),
         forumName = forumName,
         forumAvatar = null,
         replyNum = item.get { reply_num },

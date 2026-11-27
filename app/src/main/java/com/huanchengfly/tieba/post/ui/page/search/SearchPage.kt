@@ -18,11 +18,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.ButtonDefaults
@@ -33,6 +33,7 @@ import androidx.compose.material.ProvideTextStyle
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Search
@@ -77,15 +78,18 @@ import com.huanchengfly.tieba.post.ui.page.search.thread.SearchThreadSortType
 import com.huanchengfly.tieba.post.ui.page.search.thread.SearchThreadUiEvent
 import com.huanchengfly.tieba.post.ui.page.search.user.SearchUserPage
 import com.huanchengfly.tieba.post.ui.widgets.compose.Button
+import com.huanchengfly.tieba.post.ui.widgets.compose.ClickMenu
 import com.huanchengfly.tieba.post.ui.widgets.compose.Container
 import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoadHorizontalPager
+import com.huanchengfly.tieba.post.ui.widgets.compose.LocalBarsAutoHideState
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyBackHandler
+import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyScaffold
 import com.huanchengfly.tieba.post.ui.widgets.compose.SearchBox
 import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTab
-import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTabClickMenu
 import com.huanchengfly.tieba.post.ui.widgets.compose.SegmentedTabRow
 import com.huanchengfly.tieba.post.ui.widgets.compose.TopAppBarContainer
+import com.huanchengfly.tieba.post.ui.widgets.compose.rememberMenuState
 import com.huanchengfly.tieba.post.ui.widgets.compose.picker.ListSinglePicker
 import androidx.navigation.NavHostController
 import kotlinx.collections.immutable.ImmutableList
@@ -156,9 +160,13 @@ fun SearchPage(
             }
     }
 
-    LaunchedEffect(keyword) {
+    val barsAutoHideState = LocalBarsAutoHideState.current
+    LaunchedEffect(keyword, isKeywordEmpty) {
         if (keyword.isNotEmpty() && keyword != inputKeyword) {
             inputKeyword = keyword
+        }
+        if (isKeywordEmpty) {
+            barsAutoHideState?.show()
         }
     }
 
@@ -291,6 +299,7 @@ fun SearchPage(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
+                            .padding(paddingValues)
                     ) {
                         Container {
                             SearchHistoryList(
@@ -318,8 +327,8 @@ private fun SearchSuggestionList(
     suggestions: ImmutableList<String>,
     onItemClick: (String) -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxWidth()
+    MyLazyColumn(
+        modifier = Modifier.fillMaxSize()
     ) {
         items(
             items = suggestions,
@@ -377,42 +386,25 @@ private fun ColumnScope.SearchTabRow(
     pages: ImmutableList<SearchPageItem>,
 ) {
     val coroutineScope = rememberCoroutineScope()
-    SegmentedTabRow(
-        selectedTabIndex = pagerState.currentPage,
-        pagerState = pagerState,
-        onPrimarySurface = true,
-        contentColor = ExtendedTheme.colors.onTopBar,
-        equalWidth = true,
-        minTabWidth = 72.dp,
+    val currentItem = pages.getOrNull(pagerState.currentPage)
+
+    // 固定次级槽高度为 50dp（与 ExplorePageTab 一致）：左侧排序按钮仅在「搜贴」页显示，
+    // 固定高度防止切换页签时顶栏高度变化导致列表 contentPadding 重算和页签上下跳动。
+    Box(
         modifier = Modifier
-            .align(Alignment.CenterHorizontally)
-            .padding(vertical = 6.dp),
+            .fillMaxWidth()
+            .height(50.dp)
     ) {
-        pages.fastForEachIndexed { index, item ->
-            if (item.supportSort) {
-                SegmentedTabClickMenu(
-                    selected = pagerState.currentPage == index,
-                    onClick = {
-                        coroutineScope.launch {
-                            pagerState.animateScrollToPage(index)
-                        }
-                    },
-                    text = {
-                        item.text(pagerState.currentPage == index)
-                    },
-                    menuContent = {
-                        ListSinglePicker(
-                            itemTitles = item.sortTypes.keys.toImmutableList(),
-                            itemValues = item.sortTypes.values.toImmutableList(),
-                            selectedPosition = item.sortTypes.values.indexOf(item.selectedSortType()),
-                            onItemSelected = { _, _, value, changed ->
-                                if (changed) item.onSelectedSortTypeChange(value)
-                                dismiss()
-                            }
-                        )
-                    }
-                )
-            } else {
+        SegmentedTabRow(
+            selectedTabIndex = pagerState.currentPage,
+            pagerState = pagerState,
+            onPrimarySurface = true,
+            contentColor = ExtendedTheme.colors.onTopBar,
+            equalWidth = true,
+            minTabWidth = 72.dp,
+            modifier = Modifier.align(Alignment.Center),
+        ) {
+            pages.fastForEachIndexed { index, item ->
                 SegmentedTab(
                     selected = pagerState.currentPage == index,
                     onClick = {
@@ -422,6 +414,44 @@ private fun ColumnScope.SearchTabRow(
                     },
                 ) {
                     item.text(pagerState.currentPage == index)
+                }
+            }
+        }
+        if (currentItem != null && currentItem.supportSort) {
+            val menuState = rememberMenuState()
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 4.dp),
+            ) {
+                ClickMenu(
+                    menuState = menuState,
+                    triggerShape = CircleShape,
+                    menuContent = {
+                        ListSinglePicker(
+                            itemTitles = currentItem.sortTypes.keys.toImmutableList(),
+                            itemValues = currentItem.sortTypes.values.toImmutableList(),
+                            selectedPosition = currentItem.sortTypes.values.indexOf(
+                                currentItem.selectedSortType()
+                            ),
+                            onItemSelected = { _, _, value, changed ->
+                                if (changed) currentItem.onSelectedSortTypeChange(value)
+                                dismiss()
+                            }
+                        )
+                    }
+                ) {
+                    Box(
+                        modifier = Modifier.size(48.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.Sort,
+                            contentDescription = stringResource(id = R.string.desc_search_sort),
+                            tint = ExtendedTheme.colors.onTopBar,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                 }
             }
         }

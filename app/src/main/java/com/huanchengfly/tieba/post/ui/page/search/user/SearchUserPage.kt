@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -30,7 +31,6 @@ import com.huanchengfly.tieba.post.arch.pageViewModel
 import com.huanchengfly.tieba.post.ui.common.theme.compose.ExtendedTheme
 import com.huanchengfly.tieba.post.ui.page.LocalNavigator
 import com.huanchengfly.tieba.post.ui.page.search.SearchUiEvent
-import com.huanchengfly.tieba.post.ui.utils.topBarInsetsHeight
 import com.huanchengfly.tieba.post.ui.widgets.compose.PullRefresh
 import com.huanchengfly.tieba.post.ui.widgets.compose.Avatar
 import com.huanchengfly.tieba.post.ui.widgets.compose.Chip
@@ -39,6 +39,7 @@ import com.huanchengfly.tieba.post.ui.widgets.compose.LazyLoad
 import com.huanchengfly.tieba.post.ui.widgets.compose.LocalShouldLoad
 import com.huanchengfly.tieba.post.ui.widgets.compose.MyLazyColumn
 import com.huanchengfly.tieba.post.ui.widgets.compose.Sizes
+import com.huanchengfly.tieba.post.ui.widgets.compose.searchStickyHeaderFollowTopBar
 import com.huanchengfly.tieba.post.ui.widgets.compose.states.StateScreen
 import com.huanchengfly.tieba.post.utils.StringUtil
 import kotlinx.collections.immutable.persistentListOf
@@ -118,14 +119,22 @@ fun SearchUserPage(
             refreshing = isRefreshing,
             onRefresh = { viewModel.send(SearchUserUiIntent.Refresh(keyword)) },
         ) {
-            MyLazyColumn(modifier = Modifier.fillMaxSize()) {
+            val lazyListState = rememberLazyListState()
+            MyLazyColumn(
+                state = lazyListState,
+                modifier = Modifier.fillMaxSize()
+            ) {
                 if (showExactMatchResult) {
                     stickyHeader(key = "ExactMatchHeader") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .searchStickyHeaderFollowTopBar(
+                                    lazyListState = lazyListState,
+                                    headerKey = "ExactMatchHeader",
+                                    nextHeaderKey = if (showFuzzyMatchResult) "FuzzyMatchHeader" else null,
+                                )
                                 .background(ExtendedTheme.colors.background)
-                                .padding(top = topBarInsetsHeight())
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Chip(
@@ -153,8 +162,11 @@ fun SearchUserPage(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .searchStickyHeaderFollowTopBar(
+                                    lazyListState = lazyListState,
+                                    headerKey = "FuzzyMatchHeader",
+                                )
                                 .background(ExtendedTheme.colors.background)
-                                .padding(top = topBarInsetsHeight())
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Chip(
